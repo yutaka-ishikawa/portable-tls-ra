@@ -1,0 +1,13 @@
+openssl_conf = openssl_init
+
+[openssl_init]
+providers = providers
+
+[providers]
+myprovider = mytest_provider
+
+[mytest_provider]
+identity = mytest
+activate = 1
+something = "This is something"
+

@@ -1,0 +1,12 @@
+# myCustomOpenSSL.cnf
+openssl_conf = default_conf
+
+[default_conf]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+#CipherString is a colon separated list of terms that filter what TLS v1.2 suites OpenSSL will allow use of. 
+[system_default_sect]
+CipherString = ECDHE-ECDSA-AES128-CCM8
