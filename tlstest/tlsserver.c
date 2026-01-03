@@ -230,7 +230,7 @@ main(int argc, char **argv)
     if (Cflag) {
 	STACK_OF(X509_NAME) *calist;
 	printf("Request Client Certificate !!!\n");
-	SSL_CALL0(err3, calist, SSL_load_client_CA_file("CA/my_ca.crt"));
+	SSL_CALL0(err4, calist, SSL_load_client_CA_file("CA/my_ca.crt"));
 	SSL_CTX_set_client_CA_list(ctx, calist);	
 	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, verify);
 	SSL_CTX_set_verify_depth(ctx, 10);
@@ -309,6 +309,10 @@ skip:
 err2:
     /* closing socket */
     SYS_CALL0(err3, rc, "close", close(sock));
-err3:
     return 0;
+err3:
+    printf("SSL_CTX_new() fails\n");
+    return -1;
+err4:
+    printf("Cannot load client CA\n");
 }

@@ -1,5 +1,5 @@
-OPENSSL= /work/ishikawa/tools/ssl
-OPENSSL_SRC=/work/ishikawa/openssl
+OPENSSL ?= /work/ishikawa/tools/ssl
+OPENSSL_SRC ?=/work/ishikawa/src/openssl
 INCL = -I$(OPENSSL)/include -I$(OPENSSL_SRC)  -I$(OPENSSL_SRC)/include
 #LIBDIR = $(OPENSSL)/lib64
 #LIBS =  -lssl -lcrypto -L$(LIBDIR)
@@ -32,6 +32,7 @@ run-tlsra-client:
 #	
 oreore:
 	@echo "***** Creating CA"
+	mkdir -p CA
 	openssl genrsa -out ./CA/my_ca.key 2048
 	openssl req -x509 -new -nodes -key ./CA/my_ca.key -sha256 -days 3650 -out ./CA/my_ca.crt \
 	-subj "/C=JP/ST=Tokyo/L=Chiyoda/O=ROIS/OU=CRADSEC/CN=cradsec-ca.rois.ac.jp"

@@ -3,13 +3,18 @@
  *	2025/10/5
  *	Yutaka Ishikawa, CRADSEC
  *	Center for Research and Development on Secure Computer Systems
+ *
+ *	Adapting the latest internal representation 2026/Jan/03
  */
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 #include "libsock.h"
 #include "libmyssl.h"
 
-/* openssl source */
+/* openssl source internal interface*/
+/* under $(OPENSSL_SRC)/include */
+#include <internal/ssl_unwrap.h>
+/* under $(OPSNSSL_SRC) */
 #include <ssl/ssl_local.h>
 #include <ssl/record/methods/recmethod_local.h>
 
@@ -37,6 +42,67 @@
 
 #define O_SIZE	1024
 #define YEAR_ONE	(60L*60L*24L*365L)
+
+static void
+show_session(SSL_SESSION *ses)
+{
+    const SSL_CIPHER	*cipher;
+    int	i;
+
+    printf("** SSL_SESSION **\n");
+    printf("\t ssl_version(%d)\n", ses->ssl_version);
+    printf("\t master_key_length(%ld)\n", ses->master_key_length);
+    printf("\t master_key: ");
+    for (i = 0; i < ses->master_key_length; i++) {
+	printf("%x", ses->master_key[i]);
+    }
+    printf("\n");
+    printf("\t peer (%p) X509*\n", ses->peer);
+    printf("\t cipher (%p) SSL_CIPHER*\n", ses->cipher);
+    cipher = ses->cipher;
+    printf("\t\t valid    = %d\n", cipher->valid);
+    printf("\t\t name     = %s\n", cipher->name);
+    printf("\t\t stdname  = %s\n", cipher->stdname);
+    printf("\t\t id       = %x\n", cipher->id);
+    printf("\t\t mkey     = %x\n", cipher->algorithm_mkey);
+    printf("\t\t mauth     = %x\n", cipher->algorithm_auth);
+    printf("\t\t enc     = %x SSL_AES256CCM(%x)\n", cipher->algorithm_enc, 0x00002000U);
+    printf("\t\t mac     = %x\n", cipher->algorithm_mac);
+    printf("\t cipher_id (%ld) \n", ses->cipher_id);
+    printf("\t ext.hostname (%s) \n", ses->ext.hostname);
+    printf("\t ext.max_early_data (%d) \n", ses->ext.max_early_data);
+}
+
+static void
+show_recordlayer(OSSL_RECORD_LAYER *rl, char *prx)
+{
+    if (rl == NULL) {
+	printf("** NULL %s RECORD LAYER ** ????\n", prx);
+	return;
+    }
+    printf("** %p %s RECORD LAYER **\n", rl, prx);
+    printf("\t EVP_CIPHER_CTX enc_ctx(%p)->encrypt(%d)\n", rl->enc_ctx, rl->enc_ctx->encrypt);
+    printf("\t EVP_MAC_CTX mac_ctx = %p\n", rl->mac_ctx);
+    printf("\t             eivlen  = %ld\n", rl->eivlen);
+    printf("\t EVP_MD_CTX   md_ctx = %p\n", rl->md_ctx);
+    printf("\t COMP_CTX    compctx = %p\n", rl->compctx);
+}
+
+void
+myssl_inspect(SSL *ssl)
+{
+    SSL_SESSION	*ses = SSL_get_session(ssl);
+    SSL_CONNECTION *s = SSL_CONNECTION_FROM_SSL_ONLY(ssl);
+
+    show_session(ses);
+    if (s == NULL) {
+	printf("** SSL_CONNECTION is NIL\n");
+	return;
+    }
+    show_recordlayer(s->rlayer.rrl, "READ");
+    show_recordlayer(s->rlayer.wrl, "WRITE");
+}
+
 
 int
 mysslra_verify(int ok, X509 *x509, unsigned char *nonce)
@@ -297,65 +363,7 @@ myssl_shutdown(SSL_CTX *ctx, SSL *ssl) {
     ERR_free_strings();
 }
 
-static void
-show_session(SSL_SESSION *ses)
-{
-    const SSL_CIPHER	*cipher;
-    int	i;
 
-    printf("** SSL_SESSION **\n");
-    printf("\t ssl_version(%d)\n", ses->ssl_version);
-    printf("\t master_key_length(%ld)\n", ses->master_key_length);
-    printf("\t master_key: ");
-    for (i = 0; i < ses->master_key_length; i++) {
-	printf("%x", ses->master_key[i]);
-    }
-    printf("\n");
-    printf("\t peer (%p) X509*\n", ses->peer);
-    printf("\t cipher (%p) SSL_CIPHER*\n", ses->cipher);
-    cipher = ses->cipher;
-    printf("\t\t valid    = %d\n", cipher->valid);
-    printf("\t\t name     = %s\n", cipher->name);
-    printf("\t\t stdname  = %s\n", cipher->stdname);
-    printf("\t\t id       = %x\n", cipher->id);
-    printf("\t\t mkey     = %x\n", cipher->algorithm_mkey);
-    printf("\t\t mauth     = %x\n", cipher->algorithm_auth);
-    printf("\t\t enc     = %x SSL_AES256CCM(%x)\n", cipher->algorithm_enc, 0x00002000U);
-    printf("\t\t mac     = %x\n", cipher->algorithm_mac);
-    printf("\t cipher_id (%ld) \n", ses->cipher_id);
-    printf("\t ext.hostname (%s) \n", ses->ext.hostname);
-    printf("\t ext.max_early_data (%d) \n", ses->ext.max_early_data);
-}
-
-static void
-show_recordlayer(OSSL_RECORD_LAYER *rl, char *prx)
-{
-    if (rl == NULL) {
-	printf("** NULL %s RECORD LAYER ** ????\n", prx);
-	return;
-    }
-    printf("** %p %s RECORD LAYER **\n", rl, prx);
-    printf("\t EVP_CIPHER_CTX enc_ctx(%p)->encrypt(%d)\n", rl->enc_ctx, rl->enc_ctx->encrypt);
-    printf("\t EVP_MAC_CTX mac_ctx = %p\n", rl->mac_ctx);
-    printf("\t             eivlen  = %ld\n", rl->eivlen);
-    printf("\t EVP_MD_CTX   md_ctx = %p\n", rl->md_ctx);
-    printf("\t COMP_CTX    compctx = %p\n", rl->compctx);
-}
-
-void
-myssl_inspect(SSL *ssl)
-{
-    SSL_SESSION	*ses = SSL_get_session(ssl);
-    SSL_CONNECTION *s = SSL_CONNECTION_FROM_SSL_ONLY(ssl);
-
-    show_session(ses);
-    if (s == NULL) {
-	printf("** SSL_CONNECTION is NIL\n");
-	return;
-    }
-    show_recordlayer(s->rlayer.rrl, "READ");
-    show_recordlayer(s->rlayer.wrl, "WRITE");
-}
 
 /*
  * SSL_CONNECTION:
