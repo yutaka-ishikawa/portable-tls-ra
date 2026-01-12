@@ -1,0 +1,15 @@
+enclave {
+    from "sgx_tstdc.edl" import *;
+
+    trusted {
+        /* Host が取得した QE TargetInfo と report_data(64B) を受け取り、report を返す */
+        public sgx_status_t e_make_report_and_get(
+            [in] sgx_target_info_t	*qe_ti,
+            [in] uint8_t		report_data[64],
+            [out] sgx_report_t		*out_report);
+    };
+
+    untrusted {
+        void ocall_print([in, string] const char* str);
+    };
+};

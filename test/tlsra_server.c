@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <netdb.h>
+//#include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <openssl/ssl.h>
@@ -24,6 +24,48 @@ int	tflag = 0;
 int	vflag = 0;
 int	Vflag = 0;	/* verify */
 int	Cflag = 0;	/* require Client Certificate */
+int	count = DEFAULT_COUNT;
+uint16_t port = DEFAULT_TCP_PORT;
+
+static int
+myssl_printerr(const char *str, size_t len, void *u)
+{
+    printf("SSLerror: %s\n", str);
+    return -1;
+}
+
+static int
+getoption(int argc, char **argv)
+{
+    int	i;
+    for (i = 1; i < argc; i++) {
+	if (argv[i][0] == '-') {
+	    switch (argv[i][1]) {
+	    case 'C': Cflag = 1; break;
+	    case 'c': if (i > argc) goto err;
+		count = atol(argv[i+1]); i++; break;
+	    case 'd':
+		dflag = 1; break;
+	    case 'p': if (i > argc) goto err;
+		port = atol(argv[i+1]); break;
+	    case 'r': /* remote attestation */
+		rflag = 1; break;
+	    case 't': if (i > argc) goto err;
+		tflag = atol(argv[i+1]); i++; printf("tflag is set\n"); break;
+	    case 'v':
+		vflag = 1; printf("vflag is set\n"); break;
+	    case 'V': /* verify */
+		Vflag = 1; printf("Vflag is set\n"); break;
+	    }
+	} else {
+	    break;
+	}
+    }
+    return i;
+err:
+    printf("A few arguments\n");
+    return -1;
+}
 
 /*
  * Client certificate verification
@@ -57,7 +99,7 @@ sslread(SSL *ssl, unsigned char *bp, int rsz, int count)
 	if (sz != rsz) {
 	    err++;
 	    fprintf(stderr, "received size(%d) expected size(%d)\n", sz, rsz);
-	    ERR_print_errors_fp(stderr);
+	    ERR_print_errors_cb(myssl_printerr, NULL);
 	}
 	VERYFY {
 	    combuf_vryfy(bp, sz);
@@ -91,13 +133,15 @@ main(int argc, char **argv)
     int		sock, csock;
     SSL_CTX	*ctx;
     SSL		*ssl;
-    uint16_t	port = DEFAULT_TCP_PORT;
-    int		count = DEFAULT_COUNT;
     int		size = DEFAULT_SIZE;
     int		rc;
     int		error = 0;
     char	*env = getenv("SSL_PROVIDER");
 
+    printf("argc = %d\n", argc);
+    getoption(argc, argv);
+    printf("%s: %d\n", __func__, __LINE__);
+#if 0
     while ((rc = getopt(argc, argv, "Cc:dp:rt:vV")) != -1) {
 	switch (rc) {
 	case 'C': Cflag = 1; break;
@@ -107,7 +151,7 @@ main(int argc, char **argv)
 	    dflag = 1; break;
 	case 'p':
 	    port = atol(optarg); break;
-	case 'r':
+	case 'r': /* remote attestation */
 	    rflag = 1; break;
 	case 't':
 	    tflag = atol(optarg); printf("tflag is set\n"); break;
@@ -117,16 +161,23 @@ main(int argc, char **argv)
 	    Vflag = 1; printf("Vflag is set\n"); break;
 	}
     }
+#endif
     memset(buf, 0, BUF_SIZE);
+    printf("%s: %d env = %p\n", __func__, __LINE__, env);
     /* SSL initialization */
-    if (env) {
+    if (env && *env != 0) {
 	OSSL_PROVIDER	*prov = OSSL_PROVIDER_load(NULL, env);
 	printf((prov == NULL ? "Cannot load %s\n" : "Loaded %s\n"), env);
     }
+    printf("%s: %d\n", __func__, __LINE__);
+#ifndef SGX_ENCLAVE
     printf("default-cipher-list: %s\n", OSSL_default_cipher_list());
     printf("default-ciphersuites: %s\n", OSSL_default_ciphersuites());
     SSL_load_error_strings();
     SSL_library_init();
+#else
+    printf("%s:Skipping SSL library init in SGX\n", __func__);
+#endif 
     TLSRA_CALL0(err3, ctx, SSL_CTX_new(SSLv23_server_method()));
 
     /*

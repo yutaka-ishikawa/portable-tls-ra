@@ -1,4 +1,14 @@
-#include <arpa/inet.h>
+//#include <arpa/inet.h>
+#ifdef SGX_ENCLAVE
+typedef struct FILE FILE;
+extern int printf(const char *fmt, ...);
+extern int fprintf(FILE*, const char *fmt, ...);
+extern FILE *stderr;
+extern char *getenv(const char*);
+extern int read(int, void*, size_t);
+extern int close(int);
+extern void perror(const char*);
+#endif
 
 #define DEFAULT_TCP_PORT	1100
 #define DEFAULT_COUNT	1

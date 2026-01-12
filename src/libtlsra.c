@@ -1,3 +1,13 @@
+/*
+ *
+ * One possible implementation of an end-end secret data during TLS handshake
+ * would be using SSL_export_keying_material_early(). But it is only available
+ * during PSK resumption with 0-RTT in the V1.3 protocol.
+ * Thus, in this implementation, nonces of both client and server are used to
+ * implement end-end secret data. Actual implementation is XOR's.
+ * Though 
+ *	-- yutaka_ishikawa@me.com, 2026/01/08
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -9,15 +19,19 @@
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
 #include <crypto/evp.h>
+#ifndef SGX_ENCLAVE
 #include <crypto/evp/evp_local.h>
+#endif
 /*
  * OpenSSL source internal interface
  */
 /* under $(OPENSSL_SRC)/include */
+#ifndef SGX_ENCLAVE
 #include <internal/ssl_unwrap.h>
 /* under $(OPSNSSL_SRC) */
 #include <ssl/ssl_local.h>
 #include <ssl/record/methods/recmethod_local.h>
+#endif
 /*
  */
 #include "ptlsra.h"
@@ -50,14 +64,17 @@ dump(const char *msg, const unsigned char *bf, int size)
     fprintf(stderr, "\n");
 }
 
+#define BIO_BUF_LEN	1024
+static char	bio_buf[BIO_BUF_LEN];
 void
 TLSRA_show_subject_name(X509 *x509)
 {
     X509_NAME	*subj = X509_get_subject_name(x509);
-    BIO		*bio_out = BIO_new_fp(stdout, BIO_NOCLOSE);
+    //BIO		*bio_out = BIO_new_fp(stdout, BIO_NOCLOSE);
+    BIO		*bio_out = BIO_new_mem_buf(bio_buf, BIO_BUF_LEN);
 
     X509_NAME_print_ex(bio_out, subj, 0, XN_FLAG_RFC2253);
-    printf("\n");
+    printf("%s: %s\n", __func__, bio_buf);
 #if 0
     int		nent = X509_NAME_entry_count(subj);
     int		i;
@@ -79,14 +96,49 @@ TLSRA_show_subject_name(X509 *x509)
 #endif
 }
 
+static int
+myssl_printerr(const char *str, size_t len, void *u)
+{
+    char	*buf = NULL;
+    TLSRA_LIBCALL0(err, buf, malloc(len + 1));
+    strncpy(buf, str, len);
+    buf[len] = 0;
+    printf("SSLerror: %s\n", str);
+    free(buf);
+    return 1;
+err:
+    printf("%s: cannot allocate memory\n", __func__);
+    return 1;
+}
+
+void
+myssl_shutdown(SSL_CTX *ctx, SSL *ssl)
+{
+    int	rc, count = 0;
+    do {
+	rc = SSL_shutdown(ssl);
+	count++;
+    } while (rc == 0);
+    if (count > 1) {
+	printf("SSL_shutdown has been issued %d times\n", count);
+    }
+    if (rc < 0) {
+	ERR_print_errors_cb(myssl_printerr, NULL);
+    }
+    SSL_free(ssl);
+    SSL_CTX_free(ctx);
+    ERR_free_strings();
+}
+
 void
 TLSRA_show_issuer_name(X509 *x509)
 {
     X509_NAME	*iss = X509_get_issuer_name(x509);
-    BIO		*bio_out = BIO_new_fp(stdout, BIO_NOCLOSE);
+    //BIO		*bio_out = BIO_new_fp(stdout, BIO_NOCLOSE);
+    BIO		*bio_out = BIO_new_mem_buf(bio_buf, BIO_BUF_LEN);
 
     X509_NAME_print_ex(bio_out, iss, 0, XN_FLAG_RFC2253);
-    printf("\n");
+    printf("%s\n", bio_buf);
 }
 
 
@@ -109,6 +161,7 @@ TLSRA_show_nonce(SSL *ssl)
     }
 }
 
+#ifndef SGX_ENCLAVE
 void
 TLSRA_dump_x509(X509 *x509)
 {
@@ -120,6 +173,114 @@ TLSRA_dump_x509(X509 *x509)
 	BIO_free(bio);
 	OPENSSL_free(der);
     }
+}
+#endif
+
+	    
+void
+TLSRA_X509_print(X509 *x509)
+{
+#ifdef SGX_ENCLAVE
+    {
+	int	rc;
+	size_t	wsz;
+	BIO	*bio = NULL;
+	BUF_MEM *bptr = NULL;
+	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_CALL1(err1, rc, X509_print(bio, x509));
+	BIO_get_mem_ptr(bio, &bptr);
+	if (bptr && bptr->length > 0) {
+	    ocall_putn(bptr->data, bptr->length, &wsz);
+	}
+    err1:
+	BIO_free(bio);
+    err0:
+	return;
+    }
+#else
+    X509_print_fp(stderr, x509);
+#endif
+}
+
+/*
+ * PEM X509 read
+ */
+#define PEM_SIZE	(4*1024)
+X509	*
+TLSRA_PEM_read(const char *fname)
+{
+    X509	*x509 = NULL;
+#if SGX_ENCLAVE
+    {
+	BIO	*bio = NULL;
+	void	*buf = NULL;
+	size_t	len = 0;
+
+	TLSRA_LIBCALL0(err0, buf, malloc(PEM_SIZE));
+	ocall_readfile(fname, buf, PEM_SIZE, &len);
+	if (len > 0) {
+	    TLSRA_CALL0(err1, bio, BIO_new_mem_buf(buf, (int) len));
+	    TLSRA_CALL0(err2, x509, PEM_read_bio_X509(bio, NULL, NULL, NULL));
+	}
+    err2:
+	BIO_free(bio);
+    err1:
+	free(buf);
+    err0:
+	return x509;
+    }
+#else
+    {
+	FILE	*fp;
+	if ((fp = fopen(fname, "r")) == NULL) {
+	    fprintf(stderr, "Error: reading CA cert %s\n", fname);
+	    perror("fopen");
+	    return 0;
+	}
+	TLSRA_CALL0(err1, x509, PEM_read_X509(fp, NULL, NULL, NULL));
+    err1:
+	fclose(fp);
+	return x509;
+    }
+#endif
+}
+
+EVP_PKEY *
+TLSRA_PKEY_read(const char *pkeyfname)
+{
+    EVP_PKEY	*pkey = NULL;
+#ifdef SGX_ENCLAVE
+    {
+	BIO	*bio = NULL;
+	void	*buf = NULL;
+	size_t	len = 0;
+
+	TLSRA_LIBCALL0(err0, buf, malloc(PEM_SIZE));
+	ocall_readfile(pkeyfname, buf, PEM_SIZE, &len);
+	if (len > 0) {
+	    TLSRA_CALL0(err1, bio, BIO_new_mem_buf(buf, (int) len));
+	    TLSRA_CALL0(err2, pkey, PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL));
+	}
+    err2:
+	BIO_free(bio);
+    err1:
+	free(buf);
+    err0:
+	return pkey;
+    }
+#else
+    {
+	FILE	*fp;
+	if ((fp = fopen(pkeyfname, "r")) == NULL) {
+	    fprintf(stderr, "Error: reading CA private key %s\n", pkeyfname);
+	    perror("fopen");
+	    return 0;
+	}
+	pkey = PEM_read_PrivateKey(fp, NULL, NULL, NULL);
+	fclose(fp);
+	return pkey;
+    }
+#endif
 }
 
 
@@ -139,10 +300,6 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
     int	rc = 0;
 
     TLSRA_CALL0(err0, ctx, EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL));
-    if (!ctx) {
-
-	exit(-1);
-    }
     TLSRA_CALL1(err0, rc, EVP_PKEY_keygen_init(ctx));
     TLSRA_CALL1(err0, rc, EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 3072));
     TLSRA_CALL1(err0, rc, EVP_PKEY_keygen(ctx, &pkey));
@@ -179,32 +336,19 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
 				   (unsigned char *)"cradsec-srvr_ra", -1, -1, 0);
 	if (ca_crt) { /* issued by CA whose name is *ca_crt */
 	    X509	*cert = NULL;
-	    FILE	*fp;
 	    X509_NAME	*issue;
 	    /* reading CA certificate */
-	    if ((fp = fopen(ca_crt, "r")) == NULL) {
-		fprintf(stderr, "Error: reading CA cert %s\n", ca_crt);
-		perror("fopen");
-		return 0;
-	    }
-	    TLSRA_CALL0(err0, cert, PEM_read_X509(fp, NULL, NULL, NULL));
-	    fclose(fp);
+	    cert = TLSRA_PEM_read(ca_crt);
 	    /* Getting cert subject extension */
 	    issue = X509_get_subject_name(cert);
 	    TLSRA_CALL1(err0, rc, X509_set_issuer_name(x509, issue));
 	    /* reading certificate private key */
-	    if ((fp = fopen(ca_pkey, "r")) == NULL) {
-		fprintf(stderr, "Error: reading CA private key %s\n", ca_pkey);
-		perror("fopen");
-		return 0;
-	    }
-	    crtkey = PEM_read_PrivateKey(fp, NULL, NULL, NULL);
-	    fclose(fp);
+	    crtkey = TLSRA_PKEY_read(ca_pkey);
 	    if (!crtkey) {
-		ERR_print_errors_fp(stderr);
+		ERR_print_errors_cb(myssl_printerr, NULL);
 		return 0;
 	    }
-	    printf("CA certificate\n");
+	    printf("%s: CA certificate\n", __func__);
 	} else {
 	    /* self signed */
 	    {	/* CA */
@@ -219,7 +363,7 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
 	    }
 	    TLSRA_CALL1(err0, rc, X509_set_issuer_name(x509, subj));
 	    crtkey = pkey;
-	    printf("Self-signed certificate\n");
+	    printf("%s: Self-signed certificate\n", __func__);
 	}
     }
     /*
@@ -264,32 +408,37 @@ on_client_hello(SSL *ssl, int *al, void *arg)
     int	len;
     int	rc;
     // SSL_set_msg_callback(con, msg_callback);
-    printf("Certificate initializaion\n");
+    printf("Certificate initializaion rflag=%d\n", rflag);
     {
 	const unsigned char *nonce = NULL;
-	/* nonce from client */
+	/* nonce from client, it is not needed to free nounce */
 	len = SSL_client_hello_get0_random(ssl, &nonce);
 	if (len > 0) {
 	    dump("\tnonce = ", nonce, len);
 	} else {
-	    printf("\tNo nonce has been received\n");
+	    printf("\t%s: No nonce has been received\n", __func__);
 	}
+	/* making report */
+	//len = _TLSRA_makereport(report, 512, nonce);
+
 	memset(report, 0, sizeof(report));
 	memcpy(report, nonce, len > 512 ? 512 : len);
+    }
+    {
     }
     //TLSRA_CALL1(err3, rc, SSL_use_certificate_file(ssl, "public.key", SSL_FILETYPE_PEM));
     //TLSRA_CALL1(err3, rc, SSL_use_PrivateKey_file(ssl, "private.key", SSL_FILETYPE_PEM));
     if (rflag) {
 	X509		*x509;
 	EVP_PKEY	*pkey;
-	printf("TLS-RA mode\n");
+	printf("%s: TLS-RA mode\n", __func__);
 	if (mysslra_x509(&x509, &pkey, "./CA/my_ca.crt", "./CA/my_ca.key",
 			 report, len) != 1) {
 	    fprintf(stderr, "Cannot generate certificate\n");
-	    exit(-1);
+	    abort();
 	}
-	printf("Subject: "); TLSRA_show_subject_name(x509);
-	printf("Issuer: "); TLSRA_show_issuer_name(x509);
+	printf("%s: Subject: ", __func__); TLSRA_show_subject_name(x509);
+	printf("%s: Issuer: ", __func__); TLSRA_show_issuer_name(x509);
 	TLSRA_CALL1(err3, rc, SSL_use_certificate(ssl, x509));
 	TLSRA_CALL1(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     } else {
@@ -316,7 +465,7 @@ mysslra_verify(int ok, X509 *x509, unsigned char *nonce)
 
     DEBUG {
 	fprintf(stderr, "%s: X509 ******************************\n", __func__);
-	X509_print_fp(stderr, x509);
+	TLSRA_X509_print(x509);
     }
 
     target = OBJ_txt2obj(oid_txt, 1);
@@ -392,7 +541,7 @@ verify(int ok, X509_STORE_CTX *ctx)
 
 /*
  * This is for client side.
- * On the clientHello message, the server certificate is dynamically created.
+ * On the clientHello message, the client certificate is dynamically created.
  */
 static int
 on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
@@ -405,20 +554,21 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
     DEBUG {
 	fprintf(stderr, "%s: is called !!!!!!!!!!!!!!!\n", __func__);
     }
+    printf("%s: TLS-RA mode for client\n", __func__);
     fprintf(stderr, "TLS-RA mode\n");
     /* nonce from client */
     sz = SSL_get_server_random(ssl, nonce, O_SIZE);
     if (sz > 0) {
 	dump("\tnonce = ", nonce, sz);
     } else {
-	printf("\tNo nonce has been received\n");
+	printf("%s: \tNo nonce has been received\n", __func__);
     }
     memset(report, 0, sizeof(report));
     memcpy(report, nonce, sz > 512 ? 512 : sz);
     if (mysslra_x509(x509, pkey, "./CA/my_ca.crt", "./CA/my_ca.key",
 		     report, sz) != 1) {
 	fprintf(stderr, "Cannot generate certificate\n");
-	exit(-1);
+	abort();
     }
     fprintf(stderr, "\tSubject: "); TLSRA_show_subject_name(*x509);
     fprintf(stderr, "\tIssuer: "); TLSRA_show_issuer_name(*x509);
@@ -429,11 +579,11 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
 void
 TLSRA_server_init(SSL_CTX *ctx, int flag)
 {
+    rflag = flag;
     /*
      * Handling Handshake during client hello message on the server side
      */
     SSL_CTX_set_client_hello_cb(ctx, on_client_hello, NULL);
-    rflag = flag;
 }
 
 int

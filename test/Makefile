@@ -50,7 +50,7 @@ certgg:
 #
 #
 run-tlsra_server:
-	./tlsra_server -p 10101 -V -v
+	./tlsra_server -p 10101 -V -v -r
 run-tlsra_client:
 	./tlsra_client -d 127.0.0.1 -p 10101
 

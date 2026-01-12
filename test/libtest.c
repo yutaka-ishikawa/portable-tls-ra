@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <sys/un.h>
+//#include <sys/un.h>
 #include <linux/tcp.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -17,6 +17,11 @@ union unip {
 uint32_t
 str2ip(char *str)
 {
+#ifdef SGX_ENCLAVE
+    printf("%s: NEEDS TO IMPLEMENT this function\n", __func__);
+    abort();
+    return 0;
+#else
     union unip	un;
     int		ad[4], i;
     sscanf(str, "%d.%d.%d.%d", &ad[0], &ad[1], &ad[2], &ad[3]);
@@ -24,6 +29,7 @@ str2ip(char *str)
 	un.addr[i] = ad[i];
     }
     return un.ip;
+#endif
 }
 
 char *

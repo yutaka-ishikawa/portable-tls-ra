@@ -102,9 +102,9 @@ main(int argc, char **argv)
     SSL_library_init();
     TLSRA_CALL0(err, ctx, SSL_CTX_new(SSLv23_client_method()));
     /*
-     * Handling Handshake during client hello message
+     *  TLS RA initialization for client side
      */
-    rc = TLSRA_client_init(ctx, 0);
+    rc = TLSRA_client_init(ctx, 1);
     if (rc != 1) {
 	printf("TLSRA_client_init fails!!!!!!\n!");
 	exit(-1);
