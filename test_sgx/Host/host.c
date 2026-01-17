@@ -9,6 +9,9 @@
 #include <arpa/inet.h>
 /**/
 
+extern char	*get_current_dir_name(void);
+
+
 #include <sgx_urts.h>
 #include <sgx_uae_service.h>	/* sgx_target_info_t might be defined */
 
@@ -105,6 +108,8 @@ ocall_readfile(const char *fname, char *buf, size_t ilen, size_t *olen)
     size_t	len;
     int		rc;
     *olen = 0;
+    printf("%s: current directory is %s\n", __func__, get_current_dir_name());
+    printf("%s: file name = %s\n", __func__, fname);
     if ((fp = fopen(fname, "r")) == NULL) {
 	fprintf(stderr, "Error: reading file %s\n", fname);
 	perror("fopen");
@@ -117,7 +122,7 @@ ocall_readfile(const char *fname, char *buf, size_t ilen, size_t *olen)
 	goto err1;
     }
     LIBCALL(err1, rc, fseek(fp, 0, SEEK_SET), "fseek error");
-    *olen = fread(buf, len, 1, fp);
+    *olen = fread(buf, 1, len, fp);
     if (*olen != len) {
 	fprintf(stderr, "Error: Cannot read entire file: %s (%ld, %ld)\n", fname, *olen, len);
 	*olen = 0;
@@ -215,6 +220,7 @@ main(int argc, char** argv)
     sgx_launch_token_t tok = {0};
     int updated = 0;
 
+    printf("current directory is %s\n", get_current_dir_name());
     // 1) Load enclave
     st = sgx_create_enclave(enclave_path, SGX_DEBUG_FLAG, &tok, &updated, &eid, NULL);
     if (st != SGX_SUCCESS) {

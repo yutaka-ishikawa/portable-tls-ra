@@ -205,9 +205,9 @@ TLSRA_X509_print(X509 *x509)
 /*
  * PEM X509 read
  */
-#define PEM_SIZE	(4*1024)
+#define X509_SIZE	(4*1024)
 X509	*
-TLSRA_PEM_read(const char *fname)
+TLSRA_X509_read(const char *fname)
 {
     X509	*x509 = NULL;
 #if SGX_ENCLAVE
@@ -216,8 +216,8 @@ TLSRA_PEM_read(const char *fname)
 	void	*buf = NULL;
 	size_t	len = 0;
 
-	TLSRA_LIBCALL0(err0, buf, malloc(PEM_SIZE));
-	ocall_readfile(fname, buf, PEM_SIZE, &len);
+	TLSRA_LIBCALL0(err0, buf, malloc(X509_SIZE));
+	ocall_readfile(fname, buf, X509_SIZE, &len);
 	if (len > 0) {
 	    TLSRA_CALL0(err1, bio, BIO_new_mem_buf(buf, (int) len));
 	    TLSRA_CALL0(err2, x509, PEM_read_bio_X509(bio, NULL, NULL, NULL));
@@ -245,6 +245,7 @@ TLSRA_PEM_read(const char *fname)
 #endif
 }
 
+#define PEM_SIZE	(4*1024)
 EVP_PKEY *
 TLSRA_PKEY_read(const char *pkeyfname)
 {
@@ -338,7 +339,7 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
 	    X509	*cert = NULL;
 	    X509_NAME	*issue;
 	    /* reading CA certificate */
-	    cert = TLSRA_PEM_read(ca_crt);
+	    cert = TLSRA_X509_read(ca_crt);
 	    /* Getting cert subject extension */
 	    issue = X509_get_subject_name(cert);
 	    TLSRA_CALL1(err0, rc, X509_set_issuer_name(x509, issue));
@@ -442,12 +443,23 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	TLSRA_CALL1(err3, rc, SSL_use_certificate(ssl, x509));
 	TLSRA_CALL1(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     } else {
-	TLSRA_CALL1(err3, rc, SSL_use_certificate_file(ssl, "server.crt", SSL_FILETYPE_PEM));
-	TLSRA_CALL1(err3, rc, SSL_use_PrivateKey_file(ssl, "server.key", SSL_FILETYPE_PEM));
+	/* cert and pkey files are assumed PEM format, not ASN1:
+	 * e.g., openssl genrsa -out ./server.key 2048
+	 *       openssl req -new -key ./server.key -out ./server.csr ...
+	 */
+	X509	*cert = NULL;
+	EVP_PKEY *pkey = NULL;
+	cert = TLSRA_X509_read("server.crt");
+	TLSRA_CALL1(err3, rc, SSL_use_certificate(ssl, cert));
+	printf("%s: DEBUG3\n", __func__);
+	pkey = TLSRA_PKEY_read("server.key");
+	TLSRA_CALL1(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     }
+    printf("%s: SSL_CLIENT_HELLO_SUCCESS\n", __func__);
     /* success */
     return SSL_CLIENT_HELLO_SUCCESS;
 err3: /* error */
+    printf("%s: SSL_CLIENT_HELLO_ERROR\n", __func__);
     return SSL_CLIENT_HELLO_ERROR;
 }
 
