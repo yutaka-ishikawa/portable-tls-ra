@@ -1,0 +1,41 @@
+quote3_error_t tee_get_certificate_with_evidence()
+{
+    sgx_report_data_t report_data = { 0 };
+    uint8_t *p_quote = NULL;
+
+    ret = generate_cbor_claims(p_pub_key, public_key_size, &claims, &claims_size);
+    SHA256(claims, claims_size, &report_data);
+    ret = sgx_create_report(&target_info, &report_data, &app_report);
+    
+    ret = sgx_tls_get_qe_target_info_ocall(&func_ret, &target_info, sizeof(sgx_target_info_t));	   
+    ret = sgx_tls_get_quote_size_ocall(&func_ret, &quote_size);
+    p_quote = (uint8_t *) malloc (quote_size);
+    ret = sgx_tls_get_quote_ocall(&func_ret, &app_report, sizeof(app_report), p_quote, quote_size);
+    ret = generate_cbor_evidence(p_quote, quote_size, claims, claims_size, &p_evidence, &evidence_size);
+
+    ret = generate_x509_self_signed_certificate(
+	p_quote, quote_size,
+	p_evidence, evidence_size,
+	pp_output_cert,
+	p_output_cert_size);
+
+}
+
+sgx_status_t generate_x509_self_signed_certificate(
+	     const uint8_t* p_quote_buf,
+	     size_t quote_size,
+	     const uint8_t* p_evidence,
+	     size_t evidence_size)
+{
+    config.quote_buf = (uint8_t*)p_quote_buf;
+    config.quote_buf_size = quote_size;
+    config.evidence_buf = (uint8_t*)p_evidence;
+    config.evidence_size = evidence_size;
+    sgx_gen_custom_x509_cert(&config, cert_buf, sgx_cert_size, &bytes_written);
+}
+
+sgx_status_t sgx_gen_custom_x509_cert()
+{
+    // ext_oid is used for registering quote
+    // ext_tcg_tagged_oid is used for registring evidence
+}
