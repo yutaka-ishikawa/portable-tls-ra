@@ -2,7 +2,7 @@ quote3_error_t tee_get_certificate_with_evidence()
 {
     sgx_report_data_t report_data = { 0 };
     uint8_t *p_quote = NULL;
-
+    // L348 in ttls.cpp
     ret = generate_cbor_claims(p_pub_key, public_key_size, &claims, &claims_size);
     SHA256(claims, claims_size, &report_data);
     ret = sgx_create_report(&target_info, &report_data, &app_report);
@@ -38,4 +38,78 @@ sgx_status_t sgx_gen_custom_x509_cert()
 {
     // ext_oid is used for registering quote
     // ext_tcg_tagged_oid is used for registring evidence
+}
+
+#if 0
+// 
+//	TLSRA_CALL0(err0, oid, OBJ_txt2obj("1.2.840.113741.1337.2", 1));
+#define TCG_DICE_TAGGED_OID_STR "2.23.133.5.4.9"
+
+#define X509_OID_FOR_QUOTE_STRING "1.2.840.113741.1.13.1"
+static const char* oid_sgx_quote = X509_OID_FOR_QUOTE_STRING;
+sgx_gen_custom_x509_cert(uint8_t *quote, size_t qz)
+{
+    ASN1_OBJECT		*obj = NULL;
+    ASN1_OCTET_STRING	*data = NULL;
+    X509_EXTENSION	*ext = NULL;
+
+    /* oid: quote == evidence */
+    TLSRA_CALL0(err0, obj, OBJ_txt2obj(X509_OID_FOR_QUOTE_STRING, 1));
+    data = ASN1_OCTET_STRING_new();
+    ret = ASN1_OCTET_STRING_set(data, quote, (int)qz);
+    /* extension: quote (1 means critical extension) */
+    X509_EXTENSION_create_by_OBJ(&ext, obj, 1, data);
+    ret = X509_add_ext(x509, ext, -1);
+    X509_EXTENSION_free(ext);
+    /* TCG tagged evidence extension */
+    cbor_data = ASN1_OCTET_STRING_new();
+    ret = ASN1_OCTET_STRING_set(
+	cbor_data,
+	(const unsigned char*)evidence_buf, (int)evidence_size);
+    cbor_obj = OBJ_txt2obj(config->ext_tcg_tagged_oid, 1);
+    X509_EXTENSION_create_by_OBJ(&ext, cbor_obj, 0, cbor_data);
+    ret = X509_add_ext(x509cert, ext, -1);
+}
+
+/************************************************/
+tee_verify_certificate_with_evidence()
+{
+    sgx_read_cert_in_der(&cert, p_cert_in_der, cert_in_der_len);
+    ret = sgx_cert_verify(&cert, NULL, NULL, 0);
+    sgx_get_pubkey_from_cert(&cert, pub_key_buff, &pub_key_buff_size);
+    /* find cbor evidence */
+    sgx_cert_find_extension(&cert,
+			    g_evidence_oid, //IANA_CBOR_TAG_INTEL_TEE_QUOTE
+			    p_cbor_evidence,
+			    &cbor_evidence_size);
+    extract_cbor_evidence_and_compare_hash(p_cbor_evidence,
+					   cbor_evidence_size,
+					   pub_key_buff,
+					   pub_key_buff_size,
+					   p_quote, &quote_size);
+    sgx_cert_find_extension(&cert,
+			    oid_sgx_quote,
+			    p_quote,
+			    &quote_size);
+    sgx_tls_compare_quote_hash(p_quote,
+			       pub_key_buff, pub_key_buff_size);
+    sgx_tls_get_supplemental_data_size_ocall(&func_ret, p_supplemental_data_size);
+    sgx_tls_verify_quote_ocall(&func_ret,
+			       p_quote,
+			       quote_size,
+			       expiration_check_date,
+			       p_qv_result,
+			       &qve_report_info,
+			       sizeof(sgx_ql_qe_report_info_t),
+			       *pp_supplemental_data,
+			       *p_supplemental_data_size);
+    sgx_tvl_verify_qve_report_and_identity(p_quote,
+					   quote_size,
+					   &qve_report_info,
+					   expiration_check_date,
+					   collateral_expiration_status,
+					   *p_qv_result,
+					   *pp_supplemental_data,
+					   *p_supplemental_data_size,
+					   qve_isvsvn_threshold);
 }
