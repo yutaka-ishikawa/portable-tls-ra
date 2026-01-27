@@ -1,3 +1,5 @@
+ECDSA attestation(DCAP) not EPID
+
 quote3_error_t tee_get_certificate_with_evidence()
 {
     sgx_report_data_t report_data = { 0 };
@@ -72,21 +74,37 @@ sgx_gen_custom_x509_cert(uint8_t *quote, size_t qz)
 }
 
 /************************************************/
+/* Verification !!! */
+/************************************************/
 tee_verify_certificate_with_evidence()
 {
+    /*cert <== create certificate from p_cert_in_der*/
     sgx_read_cert_in_der(&cert, p_cert_in_der, cert_in_der_len);
+    /* validate the certificate signature only */
     ret = sgx_cert_verify(&cert, NULL, NULL, 0);
+    /* get public key from cert */
     sgx_get_pubkey_from_cert(&cert, pub_key_buff, &pub_key_buff_size);
+
     /* find cbor evidence */
+    // char g_evidence_oid[] = TCG_DICE_TAGGED_OID_STR;
+    //				= "2.23.133.5.4.9"
+    p_cbor_evidence = (uint8_t*)malloc(CBOR_QUOTE_MAX_SIZE);
     sgx_cert_find_extension(&cert,
-			    g_evidence_oid, //IANA_CBOR_TAG_INTEL_TEE_QUOTE
+			    g_evidence_oid, //TCG_DICE_TAGGED_OID_STR
 			    p_cbor_evidence,
 			    &cbor_evidence_size);
+    /*
+     * check if pub_key is the same hash of evidence's key
+     * and extract p_quote
+     */
+    p_quote = (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE);
     extract_cbor_evidence_and_compare_hash(p_cbor_evidence,
 					   cbor_evidence_size,
 					   pub_key_buff,
 					   pub_key_buff_size,
 					   p_quote, &quote_size);
+    // static const char* oid_sgx_quote = X509_OID_FOR_QUOTE_STRING;
+    //						== "1.2.840.113741.1.13.1"
     sgx_cert_find_extension(&cert,
 			    oid_sgx_quote,
 			    p_quote,

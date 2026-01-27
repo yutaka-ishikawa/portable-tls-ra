@@ -39,6 +39,7 @@ getoption(int argc, char **argv)
 {
     int	i;
     for (i = 1; i < argc; i++) {
+	printf("argv[%d] = %s\n", i, argv[i]);
 	if (argv[i][0] == '-') {
 	    switch (argv[i][1]) {
 	    case 'C': Cflag = 1; break;
@@ -47,7 +48,7 @@ getoption(int argc, char **argv)
 	    case 'd':
 		dflag = 1; break;
 	    case 'p': if (i > argc) goto err;
-		port = atol(argv[i+1]); break;
+		port = atol(argv[i+1]); i++; break;
 	    case 'r': /* remote attestation */
 		rflag = 1; break;
 	    case 't': if (i > argc) goto err;
@@ -79,8 +80,8 @@ verify(int ok, X509_STORE_CTX *ctx)
 	fprintf(stderr, "%s: Client Cert verificaion fails.\n", __func__);
 	return ok;
     }
-    printf("Subject: "); TLSRA_show_subject_name(x509);
-    printf("Issuer: "); TLSRA_show_issuer_name(x509);
+    printf("Subject:\n"); TLSRA_show_subject_name(x509);
+    printf("Issuer:\n"); TLSRA_show_issuer_name(x509);
     fprintf(stderr, "%s: Client Cert verificaion ok = %d\n", __func__, ok);
     return ok;
 }

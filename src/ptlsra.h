@@ -36,6 +36,15 @@ do {				\
     }				\
 } while(0)
 
+#define TLSRA_CALLN(label, val, lib)		\
+do {				\
+    val = lib;			\
+    if (val <= 0) {		\
+    	ERR_print_errors_cb(myssl_printerr, NULL);	\
+	goto label;		\
+    }				\
+} while(0)
+
 extern void	TLSRA_server_init(SSL_CTX*, int rflag);
 extern int	TLSRA_client_init(SSL_CTX*, int rflag);
 extern void	TLSRA_show_nonce(SSL*);

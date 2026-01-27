@@ -77,6 +77,68 @@ err0:
     goto err_ret;
 }
 
+/*
+ * system dependent verification table
+ */
+#define VERIFIED_QUOTE	0x01
+#define VERIFIED_CLAIM	0x02
+
+int
+verify_SGX_quote(const ASN1_OCTET_STRING *oct)
+{
+    int			len  = ASN1_STRING_length(oct);
+    const uint8_t	*quote = ASN1_STRING_get0_data(oct);
+
+    /* quote is extracted */
+    fprintf(stderr, "%s: called quote(%p) len(%d)\n", __func__, quote, len);
+    return VERIFIED_QUOTE;
+}
+
+int
+verify_SGX_evidence(const ASN1_OCTET_STRING *oct)
+{
+    fprintf(stderr, "%s: called\n", __func__);
+    return VERIFIED_CLAIM;
+}
+
+struct verify_tab {
+    const char	*oid_txt;
+    int		(*verify_func)(const ASN1_OCTET_STRING *oct);
+} verify_tab[] = {
+    { X509_OID_FOR_QUOTE_STRING, verify_SGX_quote },
+    { TCG_DICE_TAGGED_OID_STR, verify_SGX_evidence },
+    { 0, 0 }
+};
+
+int
+verify_contents(X509 *x509)
+{
+    int	rc = 0;
+    ASN1_OBJECT		*target = NULL;
+    int nent, i;
+
+    nent = X509_get_ext_count(x509);
+    printf("%s: extension count: %d\n", __func__, nent);
+
+    for (i = 0; verify_tab[i].oid_txt != 0; i++) {
+	int	loc;
+	printf("%s: oid=%s\n", __func__, verify_tab[i].oid_txt);
+	target = OBJ_txt2obj(verify_tab[i].oid_txt, 1);
+	if (target == NULL) continue;
+	loc = X509_get_ext_by_OBJ(x509, target, -1);
+	if (loc > 0) { /* found */
+	    X509_EXTENSION *ext = X509_get_ext(x509, loc);
+	    const ASN1_OCTET_STRING *oct= X509_EXTENSION_get_data(ext);
+	    rc |= verify_tab[i].verify_func(oct);
+	}
+	ASN1_OBJECT_free(target);
+	target = NULL;
+    }
+err:
+    if (target) ASN1_OBJECT_free(target);
+    return rc;
+}
+
 EVP_PKEY	*
 make_keypair(uint8_t **pbkey, int *pbsz, uint8_t **prkey, int *prsz)
 {
@@ -143,7 +205,13 @@ add_ext(X509 *cert, int nid, char *val, X509V3_CTX *ctx)
 }
 
 
-
+/*
+ * Intel SGX cbor evidence contains:
+ *	claims: cbor string("pubkey-hash")
+ *	quote: cbor array[2]:
+ *			array[0]: quote byte stream
+ *			array[1]: cbor claim
+ */
 int
 make_certificate_evidence(uint8_t *pubkey, int pubksz,
 			  uint8_t *quote, size_t qsz,
@@ -288,7 +356,7 @@ make_x509cert(X509 **px509, EVP_PKEY *pkey,
 	ASN1_OCTET_STRING	*data = NULL;
 	X509_EXTENSION		*ext = NULL;
 	int	critical = REPORT_CRIT;	/* critical (1) or not (0) */
-	/* extension: quote  */
+	/* extension: SGX quote  */
 	TLSRA_CALL0(err0, obj, OBJ_txt2obj(X509_OID_FOR_QUOTE_STRING, 1));
 	data = ASN1_OCTET_STRING_new();
 	ASN1_OCTET_STRING_set(data, quote, qtsz);
@@ -336,22 +404,28 @@ verify_cert(X509 *x509)
 {
     X509_STORE_CTX	*ctx = NULL;
     X509_STORE		*store = NULL;
+    int	rc = 0;
 
-    printf("%s: x509=%p\n", __func__, x509);
     /* context for verification */
     ctx = X509_STORE_CTX_new();
     store = X509_STORE_new();
-    /* Inject the certificate into the verification context */
+    X509_STORE_CTX_init(ctx, store, NULL, NULL);
+
     X509_STORE_CTX_set_cert(ctx, x509);
     X509_STORE_add_cert(store, x509);
-    printf("ctx = %p\n", ctx);
     if (X509_verify_cert(ctx) != 1) {
 	int err = X509_STORE_CTX_get_error(ctx);
 	const char *msg = X509_verify_cert_error_string(err);
 	fprintf(stderr, "X509_verify_cert failed: %s (code=%d)\n", msg, err);
+	rc = -1;
+	goto err;
     }
-    fprintf(stderr, "%s: verification Success\n", __func__);
-    return 0;
+    X509_STORE_CTX_free(ctx);
+    X509_STORE_free(store);
+    /* Checking quote: system dependent */
+    rc = verify_contents(x509);
+err:
+    return rc;
 }
 
 /*
@@ -389,6 +463,10 @@ main(int argc, char **argv)
      */
     read_pems("mycert", &cert);
 #endif
-    verify_cert(cert);
+    if (verify_cert(cert) & (VERIFIED_QUOTE|VERIFIED_CLAIM)) {
+	printf("Verify success\n");
+    } else {
+	printf("Verify error\n");
+    }
     return 0;
 }
