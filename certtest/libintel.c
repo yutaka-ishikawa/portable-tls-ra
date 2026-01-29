@@ -55,6 +55,12 @@
 #include <openssl/x509v3.h>
 #include "libcert.h"
 #include <cbor.h>
+#include "sgx_error.h"
+#include "sgx_report.h"
+#include "sgx_report2.h"
+#include "sgx_quote_5.h"
+
+#define SGX_TLS_SAFE_FREE(x) {if(x) {free(x); x=NULL;}}
 
 static char b64revtb[256] = {
   -3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, /*0-15*/
@@ -361,4 +367,74 @@ make_cbor_sgx_evidence(uint8_t *quote, size_t quotesz,
     *out_evidence = ebuf;
     *evidence_size = ebufsz;
     return 0;
+}
+
+/* a common function to compare hash from target_buf with quote */
+/* possible in_buf could be public_key for legacy or claims buf for interoperable ra-tls*/
+sgx_status_t sgx_tls_compare_quote_hash(uint8_t *p_quote,
+            uint8_t* in_buf, size_t in_buf_len)
+{
+    size_t report_data_size = 0;
+    uint32_t quote_type = 0;
+    uint8_t *p_report_data = NULL;
+    uint8_t *hash_in_buf = NULL; // buf to store hash by target_buf
+    unsigned char *p_sha = NULL;
+    sgx_status_t ret = SGX_SUCCESS;
+
+    if (p_quote == NULL) return SGX_ERROR_UNEXPECTED;
+
+    quote_type = *(uint32_t *)(p_quote + 4 * sizeof(uint8_t));
+
+    // get hash of cert pub key
+    report_data_size = (quote_type == 0x81) ? SGX_REPORT2_DATA_SIZE : SGX_REPORT_DATA_SIZE;
+    hash_in_buf = (uint8_t*)malloc(report_data_size);
+    if (!hash_in_buf) {
+        ret = SGX_ERROR_OUT_OF_MEMORY;
+        goto done;
+    }
+    if (quote_type == 0x81) {
+        uint16_t _version = 0;
+        memcpy((void*)&_version, p_quote, sizeof(_version));
+
+        if (_version == 5) 
+        {
+            p_report_data = (uint8_t*)&(((sgx_report2_body_v1_5_t*)&(((sgx_quote5_t*)p_quote)->body))->report_data);
+        } else
+        {
+            p_report_data = (uint8_t*)(&((sgx_quote4_t *)p_quote)->report_body.report_data);
+        }
+
+        p_sha = SHA384(in_buf, in_buf_len, hash_in_buf);
+        if (p_sha == NULL || 
+                    memcmp(p_sha, hash_in_buf, SHA384_DIGEST_LENGTH) != 0) {
+            ret = SGX_ERROR_UNEXPECTED;
+            goto done;
+        }
+        if (memcmp(p_report_data, hash_in_buf, SHA384_DIGEST_LENGTH) != 0) {
+            ret = SGX_ERROR_INVALID_SIGNATURE;
+            goto done;
+        }
+    } else if (quote_type == 0x00)
+    {
+        p_report_data = (uint8_t*)(&((sgx_quote3_t *)p_quote)->report_body.report_data);
+        p_sha = SHA256(in_buf, in_buf_len, hash_in_buf);
+        if (p_sha == NULL ||
+                    memcmp(p_sha, hash_in_buf, SHA256_DIGEST_LENGTH) != 0) {
+            ret = SGX_ERROR_UNEXPECTED;
+            goto done;
+        }
+        // compare hash, only compare the first 32 bytes
+        if (memcmp(p_report_data, hash_in_buf, SHA256_DIGEST_LENGTH) != 0) {
+            ret = SGX_ERROR_INVALID_SIGNATURE;
+            goto done;
+        }
+    }
+    else {
+        ret = SGX_ERROR_UNEXPECTED;
+        goto done;
+    }
+
+done:
+    SGX_TLS_SAFE_FREE(hash_in_buf);
+    return ret;
 }

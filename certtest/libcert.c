@@ -80,25 +80,93 @@ err0:
 /*
  * system dependent verification table
  */
-#define VERIFIED_QUOTE	0x01
-#define VERIFIED_CLAIM	0x02
+#define VERIFIED_QUOTE		0x01
+#define VERIFIED_EVIDENCE	0x02
 
 int
 verify_SGX_quote(const ASN1_OCTET_STRING *oct)
 {
-    int			len  = ASN1_STRING_length(oct);
+    int			sz  = ASN1_STRING_length(oct);
     const uint8_t	*quote = ASN1_STRING_get0_data(oct);
 
     /* quote is extracted */
-    fprintf(stderr, "%s: called quote(%p) len(%d)\n", __func__, quote, len);
+    fprintf(stderr, "%s: called size(%d)\n", __func__, sz);
     return VERIFIED_QUOTE;
 }
 
+/*
+ * SGX evidence: quote and claims
+ *		tag: IANA_CBOR_TAG_INTEL_TEE_QUOTE
+ */
 int
 verify_SGX_evidence(const ASN1_OCTET_STRING *oct)
 {
-    fprintf(stderr, "%s: called\n", __func__);
-    return VERIFIED_CLAIM;
+    int			sz = ASN1_STRING_length(oct);
+    const uint8_t	*evi = ASN1_STRING_get0_data(oct);
+    cbor_item_t		*cbor_evi = NULL;
+    struct cbor_load_result	cborload;
+    cbor_item_t		*itm = NULL;
+    fprintf(stderr, "%s: called oct size(%d)\n", __func__, sz);
+    itm = cbor_load(evi, sz, &cborload);
+    printf("%s: itm = %p\n", __func__, itm);
+    if (cborload.error.code != CBOR_ERR_NONE) {
+	fprintf(stderr, "%s: cbor_load failed\n", __func__);
+	goto err;
+    }
+    /* IANA_CBOR_TAG_INTEL_TEE_QUOTE == TCG_DICE_TAGGED_EVIDENCE_TEE_QUOTE_CBOR_TAG */
+    if (cbor_tag_value(itm) != IANA_CBOR_TAG_INTEL_TEE_QUOTE) {
+	fprintf(stderr, "%s: cbor is not INTEL QUOTE\n", __func__);
+	goto err;
+    }
+    cbor_evi = cbor_tag_item(itm);
+    if (cbor_evi == NULL || !cbor_isa_array(cbor_evi)) {
+	fprintf(stderr, "%s: cbor is corrupted\n", __func__);
+	goto err;
+    }
+    {
+	int		sz;
+	cbor_item_t	*cbor_quote = NULL;
+	uint8_t		*quote;
+	size_t		quote_sz;
+	cbor_item_t	*cbor_claims = NULL;
+	uint8_t		*claims = NULL;
+	size_t		claims_sz = 0;
+
+	sz = cbor_array_size(cbor_evi);
+	if (sz != 2) {
+	    fprintf(stderr, "%s: expected array size is 2, but %d\n", __func__, sz);
+	    goto err;
+	}
+	/* quote is stored in index 0 */
+	cbor_quote = cbor_array_get(cbor_evi, 0);
+	if (!cbor_quote || !cbor_isa_bytestring(cbor_quote)) {
+	    fprintf(stderr, "%s: byte string is expected\n", __func__);
+	    goto err;
+	}
+	quote  = cbor_bytestring_handle(cbor_quote);
+	quote_sz = cbor_bytestring_length(cbor_quote);
+	printf("quote = %p quote_sz = %ld\n", quote, quote_sz);
+
+	/* claims is stored in index 1 */
+	cbor_claims = cbor_array_get(cbor_evi, 1);
+	if (!cbor_claims || !cbor_isa_bytestring(cbor_claims)) {
+	    fprintf(stderr, "%s: byte string is expected\n", __func__);
+	    goto err;
+	}
+	claims  = cbor_bytestring_handle(cbor_claims);
+	claims_sz = cbor_bytestring_length(cbor_claims);
+	printf("claims = %p claims_sz = %ld\n", claims, claims_sz);
+	{
+	    extern int sgx_tls_compare_quote_hash(uint8_t*, uint8_t*, size_t);
+	    int rc = sgx_tls_compare_quote_hash(quote, claims, claims_sz);
+	    if (rc != 0) {
+		printf("%s: quote hash error\n", __func__);
+	    }
+	}
+    }
+    return VERIFIED_EVIDENCE;
+err:
+    return 0;
 }
 
 struct verify_tab {
@@ -463,7 +531,7 @@ main(int argc, char **argv)
      */
     read_pems("mycert", &cert);
 #endif
-    if (verify_cert(cert) & (VERIFIED_QUOTE|VERIFIED_CLAIM)) {
+    if (verify_cert(cert) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
 	printf("Verify success\n");
     } else {
 	printf("Verify error\n");
