@@ -163,6 +163,43 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct)
 		printf("%s: quote hash error\n", __func__);
 	    }
 	}
+	itm = cbor_load(claims, claims_sz, &cborload);
+	printf("%s: itm = %p\n", __func__, itm);
+	if (cborload.error.code != CBOR_ERR_NONE) {
+	    fprintf(stderr, "%s: cbor_load failed\n", __func__);
+	    goto err;
+	}
+	if (!cbor_isa_map(itm)) {
+	    fprintf(stderr, "%s: cbor is not map\n", __func__);
+	}
+#if 0
+	{
+	    int	i, rc;
+	    struct cbor_pair	*pairs = cbor_map_handle(itm);
+	    for (i = 0; i < cbor_map_size(itm); i++) {
+		extern int compare_cert_pubkey_against_cbor_claim_hash(
+		    const uint8_t* pem_pub_key, size_t pem_pub_key_len,
+		    cbor_item_t* cbor_hash_entry);
+		uint8_t	*hash_ent;
+		int		hash_sz;
+		/* key is NEGINT or BYTESTRING or STRING or ARRAY or MAP or TAG */
+		if (!pairs[i].key
+		    || cbor_isa_string(pairs[i].key)) continue;
+		if (!strncmp((char*) cbor_string_handle(pairs[i].key),
+			     "pubkey-hash",
+			     cbor_string_length(pairs[i].key))) continue;
+		/* pubkey-hash */
+		hash_ent = cbor_bytestring_handle(pairs[i].value);
+		hash_sz = cbor_bytestring_length(pairs[i].value);
+		cbor_load(hash_ent, hash_sz, &cborload);
+		if (cborload.error.code != CBOR_ERR_NONE) {
+		    fprintf(stderr, "%s: cbor ERROR\n", __func__);
+		    goto err;
+		}
+		rc = compare_cert_pubkey_against_cbor_claim_hash(pem_pub_key, pem_pub_key_len, cbor_hash_entry);
+	    }
+	}
+#endif /* 0 */
     }
     return VERIFIED_EVIDENCE;
 err:
