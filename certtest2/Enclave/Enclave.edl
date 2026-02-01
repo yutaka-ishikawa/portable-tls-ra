@@ -28,6 +28,8 @@ trusted {
 	    [in, size=eblen] char	*ebuf);
     };
     untrusted {
+       	void ocall_open([in, string] const char *path, int flags, [out] int *ret);
+	void ocall_write(int fd, [in, size=len] const char *buf, size_t len, [out] size_t *wlen);
 	void ocall_close(int fd, [out] int *ret);
 	void ocall_read(int fd, [out, size=len] char *buf, size_t len,
 	     		[out] size_t *blen);

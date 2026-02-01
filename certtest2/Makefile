@@ -9,7 +9,7 @@ MYINCLUDE = -I/opt/intel/sgxssl/include \
 	-I../src/ \
 	-I/home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include \
 	-I/home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/openssl_source/openssl-3.0.13/include \
-	-I./Enclave/libcbor/src -I./Enclave/libcbor
+	-I./Enclave/external -I./Enclave/external/src -I./Enclave/external/libcbor/src
 
 #-I/opt/intel/sgxsdk/SampleCode/SampleAttestedTLS/sgx_socket/include \
 #-I/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteVerification/sgxssl/openssl_source/openssl-3.1.6/include/ \
@@ -81,7 +81,8 @@ ENCLAVE_TRUSTED_LDFLAGS := -Wl,--no-undefined -nostdlib -nodefaultlibs \
   -Wl,-z,relro,-z,now,-z,noexecstack \
   -Wl,-pie,-eenclave_entry -Wl,--export-dynamic \
   -lsgx_tservice \
-  -Wl,--defsym=__ImageBase=0
+  -Wl,--defsym=__ImageBase=0 \
+  -lcbor -L./Enclave/external/src
 
 ifeq ($(SGX_MODE),HW)
   ENCLAVE_DEFS := -DSGX_HW
@@ -99,7 +100,7 @@ endif
 
 # ==== Files ====
 EDL := Enclave/Enclave.edl
-TRUSTED_SRCS := Enclave/enclave.c Enclave/libcert.c Enclave/libintel.c
+TRUSTED_SRCS := Enclave/Enclave_t.c Enclave/enclave.c Enclave/libcert.c Enclave/libintel.c Enclave/libtlsra.c
 TRUSTED_OBJS := $(TRUSTED_SRCS:.c=.o)
 
 UNTRUSTED_SRCS := Host/host.c Host/untrusted_sgx_socket.c Enclave/Enclave_u.c

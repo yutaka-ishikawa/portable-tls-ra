@@ -34,6 +34,7 @@
 #endif
 /*
  */
+#include "sgxenv.h"
 #include "ptlsra.h"
 
 #define DEBUG	if (dflag)
@@ -241,6 +242,168 @@ TLSRA_X509_read(const char *fname)
     err1:
 	fclose(fp);
 	return x509;
+    }
+#endif
+}
+
+/*
+ * PEM X509 write: return 1 for success, 0 for fail
+ */
+int
+TLSRA_X509_write(const char *fname, X509 *x509)
+{
+#if SGX_ENCLAVE
+    {
+	BIO	*bio = NULL;
+	void	*buf = NULL;
+	int	rc = 0;
+	int	sz = 0, wsz;
+	int	fd;
+
+	fd = open(fname, O_CREAT|O_RDWR);
+	if (fd < 0) goto err0;
+	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_CALL1(err1, rc, PEM_write_bio_X509(bio, x509));
+	sz = BIO_pending(bio);
+	TLSRA_CALL0msg(err1, buf, malloc(sz),
+		       "%s: Cannot allocate memory\n", __func__);
+	memset(buf, 0, sz);
+	rc = BIO_read(bio, buf, sz);
+	if (rc != sz) {
+	    fprintf(stderr, "%s: Cannot read BIO\n", __func__);
+	}
+	wsz = write(fd, buf, sz);
+		if (wsz != sz) {
+	    fprintf(stderr, "%s: Cannot write %s file\n", __func__, fname);
+	    rc = 0;
+	}
+	close(fd);
+	free(buf);
+    err1:
+	BIO_free(bio);
+    err0:
+	return 0;
+    }
+#else
+    {
+	FILE	*fp;
+	if ((fp = fopen(fname, "w")) == NULL) {
+	    fprintf(stderr, "Error: cannot create CA cert %s\n", fname);
+	    perror("fopen");
+	    return 0;
+	}
+	TLSRA_CALL0(err1, x509, PEM_write_X509(fp, NULL, NULL, NULL));
+    err1:
+	fclose(fp);
+	return 1;
+    }
+#endif
+}
+
+/*
+ * Public Key write: return 1 for success, 0 for fail
+ */
+int
+TLSRA_PUBKEY_write(const char *fname, EVP_PKEY *pkey)
+{
+#if SGX_ENCLAVE
+    {
+	BIO	*bio = NULL;
+	void	*buf = NULL;
+	int	rc = 0;
+	int	sz = 0, wsz;
+	int	fd;
+
+	fd = open(fname, O_CREAT|O_RDWR);
+	if (fd < 0) goto err0;
+	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_CALL1(err1, rc, PEM_write_bio_PUBKEY(bio, pkey));
+	sz = BIO_pending(bio);
+	TLSRA_CALL0msg(err1, buf, malloc(sz),
+		       "%s: Cannot allocate memory\n", __func__);
+	memset(buf, 0, sz);
+	rc = BIO_read(bio, buf, sz);
+	if (rc != sz) {
+	    fprintf(stderr, "%s: Cannot read BIO\n", __func__);
+	}
+	wsz = write(fd, buf, sz);
+	if (wsz != sz) {
+	    fprintf(stderr, "%s: Cannot write %s file\n", __func__, fname);
+	    rc = 0;
+	}
+	close(fd);
+	free(buf);
+    err1:
+	BIO_free(bio);
+    err0:
+	return 0;
+    }
+#else
+    {
+	FILE	*fp;
+	if ((fp = fopen(fname, "w")) == NULL) {
+	    fprintf(stderr, "Error: cannot create CA cert %s\n", fname);
+	    perror("fopen");
+	    return 0;
+	}
+	TLSRA_CALL0(err1, rc, PEM_write_PUBKEY(fp, pkey));
+    err1:
+	fclose(fp);
+	return 1;
+    }
+#endif
+}
+
+/*
+ * Private Key write: return 1 for success, 0 for fail
+ */
+int
+TLSRA_PrivateKey_write(const char *fname, EVP_PKEY *pkey)
+{
+#if SGX_ENCLAVE
+    {
+	BIO	*bio = NULL;
+	void	*buf = NULL;
+	int	rc = 0;
+	int	sz = 0, wsz;
+	int	fd;
+
+	fd = open(fname, O_CREAT|O_RDWR);
+	if (fd < 0) goto err0;
+	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_CALL1(err1, rc, PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL));
+	sz = BIO_pending(bio);
+	TLSRA_CALL0msg(err1, buf, malloc(sz),
+		       "%s: Cannot allocate memory\n", __func__);
+	memset(buf, 0, sz);
+	rc = BIO_read(bio, buf, sz);
+	if (rc != sz) {
+	    fprintf(stderr, "%s: Cannot read BIO\n", __func__);
+	}
+	wsz = write(fd, buf, sz);
+	if (wsz != sz) {
+	    fprintf(stderr, "%s: Cannot write %s file\n", __func__, fname);
+	    rc = 0;
+	}
+	close(fd);
+	free(buf);
+    err1:
+	BIO_free(bio);
+    err0:
+	return 0;
+    }
+#else
+    {
+	FILE	*fp;
+	if ((fp = fopen(fname, "w")) == NULL) {
+	    fprintf(stderr, "Error: cannot create CA cert %s\n", fname);
+	    perror("fopen");
+	    return 0;
+	}
+	TLSRA_CALL0(err1, x509, PEM_write_PrivateKey(fp, pkey, NULL, NULL, 0, NULL, NULL));
+    err1:
+	fclose(fp);
+	return 1;
     }
 #endif
 }

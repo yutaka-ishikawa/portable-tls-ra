@@ -84,7 +84,8 @@ err0:
 #define VERIFIED_EVIDENCE	0x02
 
 int
-verify_SGX_quote(const ASN1_OCTET_STRING *oct)
+verify_SGX_quote(const ASN1_OCTET_STRING *oct,
+		 uint8_t *pem_pubkey, size_t pem_pubkeysz)
 {
     int			sz  = ASN1_STRING_length(oct);
     const uint8_t	*quote = ASN1_STRING_get0_data(oct);
@@ -97,110 +98,27 @@ verify_SGX_quote(const ASN1_OCTET_STRING *oct)
 /*
  * SGX evidence: quote and claims
  *		tag: IANA_CBOR_TAG_INTEL_TEE_QUOTE
+ *   extract_cbor_evidence_and_compare_hash(...)
  */
 int
-verify_SGX_evidence(const ASN1_OCTET_STRING *oct)
+verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
+		    uint8_t *pem_pubkey, size_t pem_pubkeysz)
 {
-    int			sz = ASN1_STRING_length(oct);
     const uint8_t	*evi = ASN1_STRING_get0_data(oct);
-    cbor_item_t		*cbor_evi = NULL;
-    struct cbor_load_result	cborload;
-    cbor_item_t		*itm = NULL;
+    int			sz = ASN1_STRING_length(oct);
+    uint8_t		*out_qt;
+    uint32_t		*out_qtsz;
+    int			rc = 0;
+
     fprintf(stderr, "%s: called oct size(%d)\n", __func__, sz);
-    itm = cbor_load(evi, sz, &cborload);
-    printf("%s: itm = %p\n", __func__, itm);
-    if (cborload.error.code != CBOR_ERR_NONE) {
-	fprintf(stderr, "%s: cbor_load failed\n", __func__);
-	goto err;
-    }
-    /* IANA_CBOR_TAG_INTEL_TEE_QUOTE == TCG_DICE_TAGGED_EVIDENCE_TEE_QUOTE_CBOR_TAG */
-    if (cbor_tag_value(itm) != IANA_CBOR_TAG_INTEL_TEE_QUOTE) {
-	fprintf(stderr, "%s: cbor is not INTEL QUOTE\n", __func__);
-	goto err;
-    }
-    cbor_evi = cbor_tag_item(itm);
-    if (cbor_evi == NULL || !cbor_isa_array(cbor_evi)) {
-	fprintf(stderr, "%s: cbor is corrupted\n", __func__);
-	goto err;
-    }
-    {
-	int		sz;
-	cbor_item_t	*cbor_quote = NULL;
-	uint8_t		*quote;
-	size_t		quote_sz;
-	cbor_item_t	*cbor_claims = NULL;
-	uint8_t		*claims = NULL;
-	size_t		claims_sz = 0;
 
-	sz = cbor_array_size(cbor_evi);
-	if (sz != 2) {
-	    fprintf(stderr, "%s: expected array size is 2, but %d\n", __func__, sz);
-	    goto err;
-	}
-	/* quote is stored in index 0 */
-	cbor_quote = cbor_array_get(cbor_evi, 0);
-	if (!cbor_quote || !cbor_isa_bytestring(cbor_quote)) {
-	    fprintf(stderr, "%s: byte string is expected\n", __func__);
-	    goto err;
-	}
-	quote  = cbor_bytestring_handle(cbor_quote);
-	quote_sz = cbor_bytestring_length(cbor_quote);
-	printf("quote = %p quote_sz = %ld\n", quote, quote_sz);
-
-	/* claims is stored in index 1 */
-	cbor_claims = cbor_array_get(cbor_evi, 1);
-	if (!cbor_claims || !cbor_isa_bytestring(cbor_claims)) {
-	    fprintf(stderr, "%s: byte string is expected\n", __func__);
-	    goto err;
-	}
-	claims  = cbor_bytestring_handle(cbor_claims);
-	claims_sz = cbor_bytestring_length(cbor_claims);
-	printf("claims = %p claims_sz = %ld\n", claims, claims_sz);
-	{
-	    extern int sgx_tls_compare_quote_hash(uint8_t*, uint8_t*, size_t);
-	    int rc = sgx_tls_compare_quote_hash(quote, claims, claims_sz);
-	    if (rc != 0) {
-		printf("%s: quote hash error\n", __func__);
-	    }
-	}
-	itm = cbor_load(claims, claims_sz, &cborload);
-	printf("%s: itm = %p\n", __func__, itm);
-	if (cborload.error.code != CBOR_ERR_NONE) {
-	    fprintf(stderr, "%s: cbor_load failed\n", __func__);
-	    goto err;
-	}
-	if (!cbor_isa_map(itm)) {
-	    fprintf(stderr, "%s: cbor is not map\n", __func__);
-	}
-#if 0
-	{
-	    int	i, rc;
-	    struct cbor_pair	*pairs = cbor_map_handle(itm);
-	    for (i = 0; i < cbor_map_size(itm); i++) {
-		extern int compare_cert_pubkey_against_cbor_claim_hash(
-		    const uint8_t* pem_pub_key, size_t pem_pub_key_len,
-		    cbor_item_t* cbor_hash_entry);
-		uint8_t	*hash_ent;
-		int		hash_sz;
-		/* key is NEGINT or BYTESTRING or STRING or ARRAY or MAP or TAG */
-		if (!pairs[i].key
-		    || cbor_isa_string(pairs[i].key)) continue;
-		if (!strncmp((char*) cbor_string_handle(pairs[i].key),
-			     "pubkey-hash",
-			     cbor_string_length(pairs[i].key))) continue;
-		/* pubkey-hash */
-		hash_ent = cbor_bytestring_handle(pairs[i].value);
-		hash_sz = cbor_bytestring_length(pairs[i].value);
-		cbor_load(hash_ent, hash_sz, &cborload);
-		if (cborload.error.code != CBOR_ERR_NONE) {
-		    fprintf(stderr, "%s: cbor ERROR\n", __func__);
-		    goto err;
-		}
-		rc = compare_cert_pubkey_against_cbor_claim_hash(pem_pub_key, pem_pub_key_len, cbor_hash_entry);
-	    }
-	}
-#endif /* 0 */
-    }
+    TLSRA_SYSCALL0(err, out_qt , (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE),
+		   "malloc fails\n");
+    rc = extract_cbor_evidence_and_compare_hash(evi, sz,
+						pem_pubkey,
+						pem_pubkeysz,
+						out_qt, out_qtsz);
+    fprintf(stderr, "%s: rc = %d (0x%x)\n", __func__, rc, rc);
     return VERIFIED_EVIDENCE;
 err:
     return 0;
@@ -208,10 +126,11 @@ err:
 
 struct verify_tab {
     const char	*oid_txt;
-    int		(*verify_func)(const ASN1_OCTET_STRING *oct);
+    int		(*verify_func)(const ASN1_OCTET_STRING *oct,
+			       uint8_t *pem_pubkey, size_t pem_pubkeysz);
 } verify_tab[] = {
-    { X509_OID_FOR_QUOTE_STRING, verify_SGX_quote },
     { TCG_DICE_TAGGED_OID_STR, verify_SGX_evidence },
+    { X509_OID_FOR_QUOTE_STRING, verify_SGX_quote },
     { 0, 0 }
 };
 
@@ -219,12 +138,30 @@ int
 verify_contents(X509 *x509)
 {
     int	rc = 0;
-    ASN1_OBJECT		*target = NULL;
-    int nent, i;
+    uint8_t	*pubkey = NULL;
+    ASN1_OBJECT	*target = NULL;
+    int		pubsz = 0;
+    EVP_PKEY	*pkey = NULL;
+    BIO		*bio = NULL;
+    int		nent, i;
 
     nent = X509_get_ext_count(x509);
     printf("%s: extension count: %d\n", __func__, nent);
 
+    /* extract public key from cert */
+    TLSRA_CALL0msg(err, pkey, X509_get_pubkey(x509),
+		   "Cannot get public key from cert");
+    TLSRA_CALL0(err, bio, BIO_new(BIO_s_mem()));
+    TLSRA_CALL1(err, rc, PEM_write_bio_PUBKEY(bio, pkey));
+    pubsz = BIO_pending(bio);
+    printf("%s: pubsz = %d\n", __func__, pubsz);
+    TLSRA_CALL0msg(err, pubkey, malloc(pubsz + 1),
+		   "%s: Cannot allocate memory\n", __func__);
+    memset(pubkey, 0, pubsz + 1);
+    rc = BIO_read(bio, pubkey, pubsz);
+    if (rc != pubsz) {
+	printf("%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
+    }
     for (i = 0; verify_tab[i].oid_txt != 0; i++) {
 	int	loc;
 	printf("%s: oid=%s\n", __func__, verify_tab[i].oid_txt);
@@ -232,14 +169,16 @@ verify_contents(X509 *x509)
 	if (target == NULL) continue;
 	loc = X509_get_ext_by_OBJ(x509, target, -1);
 	if (loc > 0) { /* found */
-	    X509_EXTENSION *ext = X509_get_ext(x509, loc);
-	    const ASN1_OCTET_STRING *oct= X509_EXTENSION_get_data(ext);
-	    rc |= verify_tab[i].verify_func(oct);
+	    X509_EXTENSION		*ext = X509_get_ext(x509, loc);
+	    const ASN1_OCTET_STRING	*oct= X509_EXTENSION_get_data(ext);
+	    rc = verify_tab[i].verify_func(oct, pubkey, pubsz);
+	    break;
 	}
 	ASN1_OBJECT_free(target);
 	target = NULL;
     }
 err:
+    if (bio) BIO_free(bio);
     if (target) ASN1_OBJECT_free(target);
     return rc;
 }

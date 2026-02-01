@@ -3,6 +3,7 @@
    $ git submodule add git@github.com:yutaka-ishikawa/libcbor.git certtest2/Enclave/external/libcbor
 3) testing build
    $ cd Enclave/external
-   $ cmake -DCMAKE_BUILD_TYPE=Release libcbor
+   $ cmake -DCMAKE_BUILD_TYPE=Release -DCBOR_PRETTY_PRINTER=OFF libcbor
    $ make
+   example progm compilation will fail, but it is OK.
    

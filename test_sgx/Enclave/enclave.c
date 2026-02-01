@@ -98,6 +98,14 @@ perror(const char *m)
  * system call
  */
 int
+open(const char *path, int flags)
+{
+    int	ret;
+    ocall_open(path, flags, &ret);
+    return ret;
+}
+
+int
 close(int fd)
 {
     int	ret;
@@ -106,6 +114,14 @@ close(int fd)
 }
 
 int
+write(int fd, void *buf, size_t sz)
+{
+    size_t	rsz = 0;
+    ocall_write(fd, buf, sz, &rsz);
+    return rsz;
+}
+
+ssize_t
 read(int fd, void *buf, size_t sz)
 {
     size_t	rsz = 0;

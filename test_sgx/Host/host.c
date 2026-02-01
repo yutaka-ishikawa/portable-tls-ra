@@ -38,6 +38,16 @@ void ocall_close(int fd, int *ret)
     *ret = close(fd);
 }
 
+void ocall_open(const char *path, int flags, int *ret)
+{
+    *ret = open(path, flags);
+}
+
+void ocall_write(int fd, const char *buf, size_t len, size_t *wlen)
+{
+    *wlen = write(fd, buf, len);
+}
+
 void ocall_read(int fd, char *buf, size_t len, size_t *blen)
 {
     int	rc;

@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 /* for network */
 #include <sys/socket.h>
 //#include <sys/un.h>
@@ -32,6 +34,26 @@ do {				\
 	goto label;		\
     }				\
 } while(0)
+
+
+void ocall_open(const char *path, int flags, int *ret)
+{
+    *ret = open(path, flags, 0666);
+    if (*ret < 0) {
+	char	*err = strerror(errno);
+	fprintf(stderr, "%s: open(\"%s\", 0x%x) error(\"%s\")\n", __func__, path, flags, err);
+    }
+}
+
+void ocall_write(int fd, const char *buf, size_t len, size_t *wlen)
+{
+    *wlen = write(fd, buf, len);
+    if (*wlen != len) {
+	char	*err = strerror(errno);
+	fprintf(stderr, "%s: write(%d, buf, %ld) error(\"%s\")\n",
+		__func__, fd, len, err);
+    }
+}
 
 void ocall_close(int fd, int *ret)
 {

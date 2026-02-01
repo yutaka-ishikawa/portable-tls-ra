@@ -6,6 +6,10 @@
 #define IANA_CBOR_TAG_INTEL_TEE_QUOTE	60000
 #define IANA_CBOR_TAG_INTEL_TEE_REPORT	60001
 #define IANA_CBOR_TAG_INTEL_SGX_REPORT	60002
+#define IANA_NAMED_INFO_HASH_ALG_REGISTRY_RESERVED 0
+#define IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA256   1
+#define IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA384   7
+#define IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA512   8
 /*
  *
  */
@@ -37,11 +41,29 @@ do {				\
     }				\
 } while(0)
 
+#define TLSRA_SYSCALL0(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);	\
+	goto label;		\
+    }				\
+} while(0)
+
 #define TLSRA_SYSCALL(label, val, lib, msg)	\
 do {				\
     val = lib;			\
     if (val != 0) {		\
 	perror(msg);		\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_CALL0msg(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);	\
 	goto label;		\
     }				\
 } while(0)
@@ -78,3 +100,12 @@ extern int	make_cbor_sgx_claims(uint8_t *pubkey, int pubk_sz,
 extern int	make_cbor_sgx_evidence(uint8_t *quote, size_t quote_sz,
 				       uint8_t *claim, size_t claim_sz,
 				       uint8_t **o_evd, size_t *o_evd_sz);
+#include "sgx_error.h"
+extern sgx_status_t	extract_cbor_evidence_and_compare_hash(
+				const uint8_t* cbor_evidence_buf,
+				size_t evidence_buf_size,
+				uint8_t* pem_pub_key,
+				size_t pem_pub_key_len,
+				uint8_t* out_quote,
+				uint32_t* out_quote_size);
+

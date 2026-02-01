@@ -5,13 +5,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "Enclave_t.h"
+#include "sgxenv.h"
 
 extern int main(int, char**);
 
 static char	envbuf[1024];
-
-/* dummy */
-typedef struct FILE { char buf[128]; } FILE;
 FILE	*stderr;
 
 /*
@@ -98,6 +96,14 @@ perror(const char *m)
  * system call
  */
 int
+open(const char *path, int flags)
+{
+    int	ret;
+    ocall_open(path, flags, &ret);
+    return ret;
+}
+
+int
 close(int fd)
 {
     int	ret;
@@ -106,9 +112,17 @@ close(int fd)
 }
 
 int
-read(int fd, void *buf, size_t sz)
+write(int fd, void *buf, size_t sz)
 {
     size_t	rsz = 0;
+    ocall_write(fd, buf, sz, &rsz);
+    return rsz;
+}
+
+ssize_t
+read(int fd, void *buf, size_t sz)
+{
+    ssize_t	rsz = 0;
     ocall_read(fd, buf, sz, &rsz);
     return rsz;
 }
@@ -259,12 +273,14 @@ makeargv(int argc, int *argpos, char *buf)
 sgx_status_t e_main(int argc, int *argpos, int blen, char *buf)
 {
     char	**argv;
+    size_t	faddr = 0;
     ocall_print("Enclave called\n");
 
     argv = makeargv(argc, argpos, buf);
 
     ocall_print("\t calling main routine\n");
     printf("%s: testing printf\n", __func__);
+
     main(argc, argv);
     return SGX_SUCCESS;
 }
@@ -303,4 +319,3 @@ dump(const char *msg, const unsigned char *bf, int size)
     }
     fprintf(stderr, "\n");
 }
-

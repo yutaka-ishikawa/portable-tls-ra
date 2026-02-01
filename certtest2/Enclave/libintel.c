@@ -53,7 +53,10 @@
 #include <openssl/rsa.h>
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
+
+#include "sgxenv.h"
 #include "libcert.h"
+
 #include <cbor.h>
 #include "sgx_error.h"
 #include "sgx_report.h"

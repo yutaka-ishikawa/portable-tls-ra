@@ -73,61 +73,111 @@ sgx_gen_custom_x509_cert(uint8_t *quote, size_t qz)
     ret = X509_add_ext(x509cert, ext, -1);
 }
 
-/************************************************/
-/* Verification !!! */
-/************************************************/
-tee_verify_certificate_with_evidence()
 {
-    /*cert <== create certificate from p_cert_in_der*/
-    sgx_read_cert_in_der(&cert, p_cert_in_der, cert_in_der_len);
-    /* validate the certificate signature only */
-    ret = sgx_cert_verify(&cert, NULL, NULL, 0);
-    /* get public key from cert */
-    sgx_get_pubkey_from_cert(&cert, pub_key_buff, &pub_key_buff_size);
+    int			sz = ASN1_STRING_length(oct);
+    const uint8_t	*evi = ASN1_STRING_get0_data(oct);
+    cbor_item_t		*cbor_evi = NULL;
+    struct cbor_load_result	cborload;
+    cbor_item_t		*itm = NULL;
+    fprintf(stderr, "%s: called oct size(%d)\n", __func__, sz);
+    itm = cbor_load(evi, sz, &cborload);
+    printf("%s: itm = %p\n", __func__, itm);
 
-    /* find cbor evidence */
-    // char g_evidence_oid[] = TCG_DICE_TAGGED_OID_STR;
-    //				= "2.23.133.5.4.9"
-    p_cbor_evidence = (uint8_t*)malloc(CBOR_QUOTE_MAX_SIZE);
-    sgx_cert_find_extension(&cert,
-			    g_evidence_oid, //TCG_DICE_TAGGED_OID_STR
-			    p_cbor_evidence,
-			    &cbor_evidence_size);
-    /*
-     * check if pub_key is the same hash of evidence's key
-     * and extract p_quote
-     */
-    p_quote = (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE);
-    extract_cbor_evidence_and_compare_hash(p_cbor_evidence,
-					   cbor_evidence_size,
-					   pub_key_buff,
-					   pub_key_buff_size,
-					   p_quote, &quote_size);
-    // static const char* oid_sgx_quote = X509_OID_FOR_QUOTE_STRING;
-    //						== "1.2.840.113741.1.13.1"
-    sgx_cert_find_extension(&cert,
-			    oid_sgx_quote,
-			    p_quote,
-			    &quote_size);
-    sgx_tls_compare_quote_hash(p_quote,
-			       pub_key_buff, pub_key_buff_size);
-    sgx_tls_get_supplemental_data_size_ocall(&func_ret, p_supplemental_data_size);
-    sgx_tls_verify_quote_ocall(&func_ret,
-			       p_quote,
-			       quote_size,
-			       expiration_check_date,
-			       p_qv_result,
-			       &qve_report_info,
-			       sizeof(sgx_ql_qe_report_info_t),
-			       *pp_supplemental_data,
-			       *p_supplemental_data_size);
-    sgx_tvl_verify_qve_report_and_identity(p_quote,
-					   quote_size,
-					   &qve_report_info,
-					   expiration_check_date,
-					   collateral_expiration_status,
-					   *p_qv_result,
-					   *pp_supplemental_data,
-					   *p_supplemental_data_size,
-					   qve_isvsvn_threshold);
+    extract_cbor_evidence_and_compare_hash(evi, sz, pem_pubkey, pem_pubkeysz,
+					   out_qt, out_qtsz);
+    if (cborload.error.code != CBOR_ERR_NONE) {
+	fprintf(stderr, "%s: cbor_load failed\n", __func__);
+	goto err;
+    }
+    /* IANA_CBOR_TAG_INTEL_TEE_QUOTE == TCG_DICE_TAGGED_EVIDENCE_TEE_QUOTE_CBOR_TAG */
+    if (cbor_tag_value(itm) != IANA_CBOR_TAG_INTEL_TEE_QUOTE) {
+	fprintf(stderr, "%s: cbor is not INTEL QUOTE\n", __func__);
+	goto err;
+    }
+    cbor_evi = cbor_tag_item(itm);
+    if (cbor_evi == NULL || !cbor_isa_array(cbor_evi)) {
+	fprintf(stderr, "%s: cbor is corrupted\n", __func__);
+	goto err;
+    }
+    {
+	int		sz;
+	cbor_item_t	*cbor_quote = NULL;
+	uint8_t		*quote;
+	size_t		quote_sz;
+	cbor_item_t	*cbor_claims = NULL;
+	uint8_t		*claims = NULL;
+	size_t		claims_sz = 0;
+
+	sz = cbor_array_size(cbor_evi);
+	if (sz != 2) {
+	    fprintf(stderr, "%s: expected array size is 2, but %d\n", __func__, sz);
+	    goto err;
+	}
+	/* quote is stored in index 0 */
+	cbor_quote = cbor_array_get(cbor_evi, 0);
+	if (!cbor_quote || !cbor_isa_bytestring(cbor_quote)) {
+	    fprintf(stderr, "%s: byte string is expected\n", __func__);
+	    goto err;
+	}
+	quote  = cbor_bytestring_handle(cbor_quote);
+	quote_sz = cbor_bytestring_length(cbor_quote);
+	printf("quote = %p quote_sz = %ld\n", quote, quote_sz);
+
+	/* claims is stored in index 1 */
+	cbor_claims = cbor_array_get(cbor_evi, 1);
+	if (!cbor_claims || !cbor_isa_bytestring(cbor_claims)) {
+	    fprintf(stderr, "%s: byte string is expected\n", __func__);
+	    goto err;
+	}
+	claims  = cbor_bytestring_handle(cbor_claims);
+	claims_sz = cbor_bytestring_length(cbor_claims);
+	printf("claims = %p claims_sz = %ld\n", claims, claims_sz);
+	{
+	    extern int sgx_tls_compare_quote_hash(uint8_t*, uint8_t*, size_t);
+	    int rc = sgx_tls_compare_quote_hash(quote, claims, claims_sz);
+	    if (rc != 0) {
+		printf("%s: quote hash error\n", __func__);
+	    }
+	}
+	itm = cbor_load(claims, claims_sz, &cborload);
+	printf("%s: itm = %p\n", __func__, itm);
+	if (cborload.error.code != CBOR_ERR_NONE) {
+	    fprintf(stderr, "%s: cbor_load failed\n", __func__);
+	    goto err;
+	}
+	if (!cbor_isa_map(itm)) {
+	    fprintf(stderr, "%s: cbor is not map\n", __func__);
+	}
+#if 0
+	{
+	    int	i, rc;
+	    struct cbor_pair	*pairs = cbor_map_handle(itm);
+	    for (i = 0; i < cbor_map_size(itm); i++) {
+		extern int compare_cert_pubkey_against_cbor_claim_hash(
+		    const uint8_t* pem_pub_key, size_t pem_pub_key_len,
+		    cbor_item_t* cbor_hash_entry);
+		uint8_t	*hash_ent;
+		int		hash_sz;
+		/* key is NEGINT or BYTESTRING or STRING or ARRAY or MAP or TAG */
+		if (!pairs[i].key
+		    || cbor_isa_string(pairs[i].key)) continue;
+		if (!strncmp((char*) cbor_string_handle(pairs[i].key),
+			     "pubkey-hash",
+			     cbor_string_length(pairs[i].key))) continue;
+		/* pubkey-hash */
+		hash_ent = cbor_bytestring_handle(pairs[i].value);
+		hash_sz = cbor_bytestring_length(pairs[i].value);
+		cbor_load(hash_ent, hash_sz, &cborload);
+		if (cborload.error.code != CBOR_ERR_NONE) {
+		    fprintf(stderr, "%s: cbor ERROR\n", __func__);
+		    goto err;
+		}
+		rc = compare_cert_pubkey_against_cbor_claim_hash(pem_pub_key, pem_pub_key_len, cbor_hash_entry);
+	    }
+	}
+#endif /* 0 */
+    }
+    return VERIFIED_EVIDENCE;
+err:
+    return 0;
 }

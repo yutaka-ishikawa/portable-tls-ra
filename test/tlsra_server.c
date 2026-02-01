@@ -13,6 +13,7 @@
 #include <openssl/err.h>
 #include <openssl/provider.h>
 
+#include <sgxenv.h>
 #include <ptlsra.h>
 #include "tlsra_test.h"
 

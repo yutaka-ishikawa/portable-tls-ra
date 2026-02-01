@@ -32,8 +32,14 @@
 #include <openssl/rsa.h>
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
+#include "sgxenv.h"
+#include "ptlsra.h"
 #include "libcert.h"
 #include <cbor.h>
+
+/* SGX */
+#include <sgx_utils.h>
+#include "sgxenv.h"
 
 //#define REPORT_CRITICAL
 #ifdef REPORT_CRITICAL
@@ -277,36 +283,21 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 static void
 write_pems(const char *path, X509 *cert, EVP_PKEY *pkey)
 {
-    FILE	*fp;
     char	buf[1024];
 
+    fprintf(stderr, "%s: %s\n", __func__, path);
     /* cert */
-    strcpy(buf, path);
-    strcat(buf, ".pem");
-    if ((fp = fopen(buf, "wb")) == NULL) {
-	fprintf(stderr, "Cannot open %s\n", buf);
-	exit(-1);
-    }
-    PEM_write_X509(fp, cert);
-    fclose(fp);
+    strncpy(buf, path, 1024); strncat(buf, ".pem", 1023);
+    TLSRA_X509_write(buf, cert);
     /* public key */
-    strcpy(buf, path);
-    strcat(buf, ".pub");
-    if ((fp = fopen(buf, "wb")) == NULL) {
-	fprintf(stderr, "Cannot open %s\n", buf);
-	exit(-1);
-    }
-    PEM_write_PUBKEY(fp, pkey);
-    fclose(fp);
+    strncpy(buf, path, 1024); strncat(buf, ".pub", 1023);
+    TLSRA_PUBKEY_write(buf, pkey);
+    //PEM_write_PUBKEY(fp, pkey);
+
     /* private key */
-    strcpy(buf, path);
-    strcat(buf, ".priv");
-    if ((fp = fopen(buf, "wb")) == NULL) {
-	fprintf(stderr, "Cannot open %s\n", buf);
-	exit(-1);
-    }
-    PEM_write_PrivateKey(fp, pkey, NULL, NULL, 0, NULL, NULL);
-    fclose(fp);
+    strncpy(buf, path, 1024); strncat(buf, ".priv", 1023);
+    TLSRA_PrivateKey_write(buf, pkey);
+    // PEM_write_PrivateKey(fp, pkey, NULL, NULL, 0, NULL, NULL);
 }
 
 static void
@@ -316,15 +307,8 @@ read_pems(const char *path, X509 **pcert)
     char	buf[1024];
 
     /* cert */
-    strcpy(buf, path);
-    strcat(buf, ".pem");
-    if ((fp = fopen(buf, "rb")) == NULL) {
-	fprintf(stderr, "Cannot open %s\n", buf);
-	exit(-1);
-    }
-    /* cert is created from file */
-    *pcert = PEM_read_X509(fp, NULL, NULL, NULL);
-    fclose(fp);
+    strncpy(buf, path, 1024);  strncat(buf, ".pem", 1023);
+    *pcert = TLSRA_X509_read(buf);
 }
 
 /*

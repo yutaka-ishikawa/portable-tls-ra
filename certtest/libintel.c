@@ -438,3 +438,267 @@ done:
     SGX_TLS_SAFE_FREE(hash_in_buf);
     return ret;
 }
+
+static sgx_status_t compare_cert_pubkey_against_cbor_claim_hash(
+    const uint8_t* pem_pub_key,
+    size_t pem_pub_key_len,
+    cbor_item_t* cbor_hash_entry)
+{
+    uint8_t pk_der[PUB_KEY_MAX_SIZE] = {0};
+    size_t pk_der_size = 0;
+    unsigned char *p_sha = NULL;
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+    cbor_item_t* cbor_hash_alg_id = NULL;
+    cbor_item_t* cbor_hash_value  = NULL;
+
+    if (PEM2DER(pem_pub_key, pem_pub_key_len, pk_der, &pk_der_size))
+      goto out;
+
+    if (!cbor_isa_array(cbor_hash_entry) || !cbor_array_is_definite(cbor_hash_entry)
+            || cbor_array_size(cbor_hash_entry) != 2) {
+        return SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+    }
+
+    cbor_hash_alg_id = cbor_array_get(cbor_hash_entry, /*index=*/0);
+    if (!cbor_hash_alg_id || !cbor_isa_uint(cbor_hash_alg_id)) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    cbor_hash_value = cbor_array_get(cbor_hash_entry, /*index=*/1);
+    if (!cbor_hash_value || !cbor_isa_bytestring(cbor_hash_value)
+            || !cbor_bytestring_is_definite(cbor_hash_value)) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    uint8_t sha[SHA512_DIGEST_LENGTH]; /* enough to hold SHA-256, -384, or -512 */
+    size_t sha_size;
+    size_t temp_size;
+
+    uint64_t hash_alg_id;
+    switch (cbor_int_get_width(cbor_hash_alg_id)) {
+        case CBOR_INT_8:  hash_alg_id = cbor_get_uint8(cbor_hash_alg_id); break;
+        case CBOR_INT_16: hash_alg_id = cbor_get_uint16(cbor_hash_alg_id); break;
+        case CBOR_INT_32: hash_alg_id = cbor_get_uint32(cbor_hash_alg_id); break;
+        case CBOR_INT_64: hash_alg_id = cbor_get_uint64(cbor_hash_alg_id); break;
+        default:          ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION; goto out;
+    }
+
+    switch (hash_alg_id) {
+        case IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA256:
+            sha_size = SHA256_DIGEST_LENGTH;
+            break;
+        case IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA384:
+            sha_size = SHA384_DIGEST_LENGTH;
+            break;
+        case IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA512:
+            sha_size = SHA512_DIGEST_LENGTH;
+            break;
+        default:
+            ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+            goto out;
+    }
+
+    temp_size = cbor_bytestring_length(cbor_hash_value);
+    if (temp_size != sha_size) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    switch (hash_alg_id) {
+        case IANA_NAMED_INFO_HASH_ALG_REGISTRY_RESERVED:
+        case IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA256:
+            p_sha = SHA256(pk_der, pk_der_size, sha);
+            break;
+        case IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA384:
+            p_sha = SHA384(pk_der, pk_der_size, sha);
+            break;
+        case IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA512:
+            p_sha = SHA512(pk_der, pk_der_size, sha);
+            break;
+    }
+
+    if (p_sha == NULL)
+    {
+        ret = SGX_ERROR_UNEXPECTED;
+        goto out;
+    }
+
+    if (memcmp(cbor_bytestring_handle(cbor_hash_value), sha, sha_size)) {
+        ret = SGX_ERROR_INVALID_SIGNATURE;
+        goto out;
+    }
+
+    ret = SGX_SUCCESS;
+out:
+    if (cbor_hash_alg_id) cbor_decref(&cbor_hash_alg_id);
+    if (cbor_hash_value)  cbor_decref(&cbor_hash_value);
+    return ret;
+}
+
+sgx_status_t extract_cbor_evidence_and_compare_hash(
+            const uint8_t* cbor_evidence_buf,
+            size_t evidence_buf_size,
+            uint8_t* pem_pub_key,
+            size_t pem_pub_key_len,
+            uint8_t* out_quote,
+            uint32_t* out_quote_size)
+{
+    /* for description of evidence format, see ttls.c:generate_cbor_evidence() */
+    cbor_item_t* cbor_tagged_evidence = NULL;
+    cbor_item_t* cbor_evidence = NULL;
+    cbor_item_t* cbor_quote = NULL;
+    cbor_item_t* cbor_claims = NULL; /* serialized CBOR map of claims (as bytestring) */
+    cbor_item_t* cbor_claims_map = NULL;
+    cbor_item_t* cbor_hash_entry = NULL;
+    uint8_t* quote = NULL;
+    sgx_status_t ret = SGX_SUCCESS;
+
+    struct cbor_pair* claims_pairs = NULL;
+    uint8_t* claims_buf = NULL;
+    size_t claims_buf_size = 0;
+    size_t quote_size = 0;
+
+    if (evidence_buf_size == 0) return SGX_ERROR_UNEXPECTED;
+
+    struct cbor_load_result cbor_result;
+    cbor_tagged_evidence = cbor_load(cbor_evidence_buf, evidence_buf_size, &cbor_result);
+    if (cbor_result.error.code != CBOR_ERR_NONE) {
+        ret = (cbor_result.error.code == CBOR_ERR_MEMERROR) ? 
+            SGX_ERROR_OUT_OF_MEMORY : SGX_ERROR_UNEXPECTED;
+        goto out;
+    }
+    printf("%s: %d\n", __func__, __LINE__);
+    if (!cbor_isa_tag(cbor_tagged_evidence)
+            || cbor_tag_value(cbor_tagged_evidence) != TCG_DICE_TAGGED_EVIDENCE_TEE_QUOTE_CBOR_TAG)     
+    {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    cbor_evidence = cbor_tag_item(cbor_tagged_evidence);
+    if (!cbor_evidence || !cbor_isa_array(cbor_evidence)
+            || !cbor_array_is_definite(cbor_evidence)) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    if (cbor_array_size(cbor_evidence) != 2) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    printf("%s: %d\n", __func__, __LINE__);
+    cbor_quote = cbor_array_get(cbor_evidence, /*index=*/0);
+    if (!cbor_quote || !cbor_isa_bytestring(cbor_quote) || !cbor_bytestring_is_definite(cbor_quote)
+            || cbor_bytestring_length(cbor_quote) == 0) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    quote_size = cbor_bytestring_length(cbor_quote);
+    printf("%s: %d quote_size(%ld) QUOTE_MIN_SIZE(%d)\n", __func__, __LINE__, quote_size, QUOTE_MIN_SIZE);
+    if (quote_size < QUOTE_MIN_SIZE) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+    quote = (uint8_t*)malloc(quote_size);
+    if (!quote) {
+        ret = SGX_ERROR_OUT_OF_MEMORY;
+        goto out;
+    }
+    memcpy(quote, cbor_bytestring_handle(cbor_quote), quote_size);
+
+    printf("%s: %d\n", __func__, __LINE__);
+
+    cbor_claims = cbor_array_get(cbor_evidence, /*index=*/1);
+    if (!cbor_claims || !cbor_isa_bytestring(cbor_claims)
+            || !cbor_bytestring_is_definite(cbor_claims)
+            || cbor_bytestring_length(cbor_claims) == 0) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    /* claims object is borrowed, no need to free separately */
+    claims_buf    = cbor_bytestring_handle(cbor_claims);
+    claims_buf_size = cbor_bytestring_length(cbor_claims);
+    assert(claims_buf && claims_buf_size);
+
+    /* verify that TEE quote corresponds to the attached serialized claims */
+    ret = sgx_tls_compare_quote_hash(quote, claims_buf, claims_buf_size);
+    if (ret != SGX_SUCCESS)
+    {
+        goto out;
+    }
+    /* parse and verify CBOR claims */
+    cbor_claims_map = cbor_load(claims_buf, claims_buf_size, &cbor_result);
+    if (cbor_result.error.code != CBOR_ERR_NONE) {
+        ret = (cbor_result.error.code == CBOR_ERR_MEMERROR) ?
+            SGX_ERROR_OUT_OF_MEMORY : SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    if (!cbor_isa_map(cbor_claims_map) || !cbor_map_is_definite(cbor_claims_map)
+            || cbor_map_size(cbor_claims_map) < 1) {
+        ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+        goto out;
+    }
+
+    claims_pairs = cbor_map_handle(cbor_claims_map);
+    for (size_t i = 0; i < cbor_map_size(cbor_claims_map); i++) {
+        if (!claims_pairs[i].key || !cbor_isa_string(claims_pairs[i].key)
+                || !cbor_string_is_definite(claims_pairs[i].key)
+                || cbor_string_length(claims_pairs[i].key) == 0) {
+            ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+            goto out;
+        }
+	
+        if (strncmp((char*)cbor_string_handle(claims_pairs[i].key), "pubkey-hash",
+                    cbor_string_length(claims_pairs[i].key)) == 0) {
+            /* claim { "pubkey-hash" : serialized CBOR array hash-entry (as CBOR bstr) } */
+            if (!claims_pairs[i].value || !cbor_isa_bytestring(claims_pairs[i].value)
+                    || !cbor_bytestring_is_definite(claims_pairs[i].value)
+                    || cbor_bytestring_length(claims_pairs[i].value) == 0) {
+                ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+                goto out;
+            }
+
+            uint8_t* hash_entry_buf = cbor_bytestring_handle(claims_pairs[i].value);
+            size_t hash_entry_buf_size = cbor_bytestring_length(claims_pairs[i].value);
+
+            cbor_hash_entry = cbor_load(hash_entry_buf, hash_entry_buf_size, &cbor_result);
+            if (cbor_result.error.code != CBOR_ERR_NONE) {
+                ret = (cbor_result.error.code == CBOR_ERR_MEMERROR) ? SGX_ERROR_OUT_OF_EPC
+                      : SGX_ERROR_TLS_X509_INVALID_EXTENSION;
+                goto out;
+            }
+
+            ret = compare_cert_pubkey_against_cbor_claim_hash(pem_pub_key, pem_pub_key_len, cbor_hash_entry);
+            if (ret != SGX_SUCCESS)
+            {
+                goto out;
+            }
+        }
+    }
+
+    memcpy(out_quote, quote, quote_size);
+    *out_quote_size = (uint32_t)quote_size;
+    ret = SGX_SUCCESS;
+
+out:
+    SGX_TLS_SAFE_FREE(quote);
+    if (cbor_hash_entry)
+        cbor_decref(&cbor_hash_entry);
+    if (cbor_claims_map)
+        cbor_decref(&cbor_claims_map);
+    if (cbor_claims)
+        cbor_decref(&cbor_claims);
+    if (cbor_quote)
+        cbor_decref(&cbor_quote);
+    if (cbor_evidence)
+        cbor_decref(&cbor_evidence);
+    if (cbor_tagged_evidence)
+        cbor_decref(&cbor_tagged_evidence);
+    return ret;
+}
