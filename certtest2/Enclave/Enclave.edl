@@ -1,0 +1,47 @@
+/*
+ * /opt/intel/sgx/sdk/include
+ *	sgx_tstdc.edl
+ *	sgx_ttls.edl
+ *	sgx_pthread.edl
+ *   and other
+ *	sgx_dcap_tvl.edl
+ *	sgx_tkey_exchange.edl
+ *	sgx_tprotected_fs.edl
+ *	sgx_tswitchless.edl
+ *  linux-sgx/SampleAttestedTLS/sgx_socket/include/
+ *	sgx_socket.edl
+ *  linux-sgx/SampleAttestedTLS/sgxssl/Linux/package/include/
+ *	sgx_tsgxssl.edl
+ */
+enclave {
+    from "sgx_tstdc.edl" import *;
+    from "sgx_socket.edl" import *;
+    from "sgx_tsgxssl.edl" import *;
+    from "sgx_ttls.edl" import *;
+    from "sgx_pthread.edl" import *;
+
+trusted {
+        public sgx_status_t e_main(
+            int				eargc,
+            [in, count=eargc] int	*eargpos,
+	    int				eblen,
+	    [in, size=eblen] char	*ebuf);
+    };
+    untrusted {
+	void ocall_close(int fd, [out] int *ret);
+	void ocall_read(int fd, [out, size=len] char *buf, size_t len,
+	     		[out] size_t *blen);
+	void ocall_readfile([in, string] const char *env,
+	     		  [out, size=len] char *buf,
+			  size_t len,
+			  [out] size_t *blen);
+        void ocall_print([in, string] const char* str);
+	void ocall_puts([in, string] const char* str);
+        void ocall_putn([in, string] const char* str, int len, [out] size_t *wlen);
+	void ocall_getenv([in, string] const char *env,
+	     		  [out, size=len] char *str,
+			  int len);
+	void ocall_sock_serveropen(uint32_t ip, uint16_t port, [out] int *rc);
+	void ocall_sock_accept(int sock, [out] int *rc);
+    };
+};

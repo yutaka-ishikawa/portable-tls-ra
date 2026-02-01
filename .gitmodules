@@ -1,0 +1,3 @@
+[submodule "certtest2/Enclave/libcbor"]
+	path = certtest2/Enclave/external/libcbor
+	url = git@github.com:yutaka-ishikawa/libcbor.git
