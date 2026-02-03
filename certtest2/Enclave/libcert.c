@@ -609,18 +609,26 @@ main(int argc, char **argv)
      */
     make_x509cert(&cert, pkey, quote, qsz, evidence, evsz);
     write_pems("mycert", cert, pkey);
-#if 0
     X509_free(cert);
     free(quote);
+    SGX_DEBUG {
+	fprintf(stderr, "my certificaion is freed\n");
+    }
     /*
      *
      */
+    SGX_DEBUG {
+	fprintf(stderr, "my certificaion is read and verified\n");
+    }
     read_pems("mycert", &cert);
-#endif
+    if (cert == NULL) {
+	printf("Cannot read cert file\n");
+	return 0;
+    }
     if (verify_cert(cert) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
-	printf("Verify success\n");
+	printf("Verification success.\n");
     } else {
-	printf("Verify error\n");
+	printf("Verification error.\n");
     }
     return 0;
 }

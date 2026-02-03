@@ -13,17 +13,13 @@
 
 extern char	*get_current_dir_name(void);
 
-
 #include <sgx_urts.h>
 #include <sgx_uae_service.h>	/* sgx_target_info_t might be defined */
-
 #include <sgx_ql_quote.h>          // DCAP: QE target info / quote APIs
-#include <sgx_dcap_quoteverify.h>  // (任意) 検証APIを使うなら
-
+#include <sgx_dcap_quoteverify.h>  //
 #include <sgx_dcap_ql_wrapper.h>   // added YI
 
 #include "Enclave_u.h"
-
 #define ENCLAVE_FILE "./enclave.signed.so"
 
 #define LIBCALL(label, val, lib, fmt, ...)	\
@@ -34,6 +30,12 @@ do {				\
 	goto label;		\
     }				\
 } while(0)
+
+#define SGX_DEBUG	if (sgx_dflag)
+#define SGX_VFLAG	if (sgx_vflag)
+
+int	sgx_dflag = 0;
+int	sgx_vflag = 0;
 
 void ocall_time(uint64_t *tp)
 {
@@ -94,8 +96,11 @@ void ocall_putn(const char *s, int len, size_t *wlen) {
 void ocall_getenv(const char *env, char *result, int len)
 {
     char	*cp = getenv(env);
-    printf("%s: host side is called: env(%s) result = %p\n", __func__, env, result);
-    printf("cp = %p\n", cp);
+
+    SGX_DEBUG {
+	printf("%s: host side is called: env(%s) result = %p\n", __func__, env, result);
+	printf("cp = %p\n", cp);
+    }
     if (cp) {
 	if (len < strlen(cp)) {
 	    fprintf(stderr,
@@ -136,8 +141,11 @@ ocall_readfile(const char *fname, char *buf, size_t ilen, size_t *olen)
     size_t	len;
     int		rc;
     *olen = 0;
-    printf("%s: current directory is %s\n", __func__, get_current_dir_name());
-    printf("%s: file name = %s\n", __func__, fname);
+
+    SGX_DEBUG {
+	printf("%s: current directory is %s\n", __func__, get_current_dir_name());
+	printf("%s: file name = %s\n", __func__, fname);
+    }
     if ((fp = fopen(fname, "r")) == NULL) {
 	fprintf(stderr, "Error: reading file %s\n", fname);
 	perror("fopen");
@@ -146,7 +154,8 @@ ocall_readfile(const char *fname, char *buf, size_t ilen, size_t *olen)
     LIBCALL(err1, rc, fseek(fp, 0, SEEK_END), "fseek error");
     len = ftell(fp);
     if (len > ilen) {
-	fprintf(stderr, "Error: too small buffer size for reading file: %s\n", fname);
+	fprintf(stderr, "Error: too small buffer size for reading file: %s"
+		" buffer size = %ld, but file size = %ld\n", fname, ilen, len);
 	goto err1;
     }
     LIBCALL(err1, rc, fseek(fp, 0, SEEK_SET), "fseek error");
@@ -247,7 +256,14 @@ main(int argc, char** argv)
     sgx_status_t est = SGX_SUCCESS;
     sgx_launch_token_t tok = {0};
     int updated = 0;
+    int	opt;
 
+    while ((opt = getopt(argc, argv, "dv")) != -1) {
+	switch (opt) {
+	case 'd': sgx_dflag = 1; break;
+	case 'v': sgx_vflag = 1; break;
+	}
+    }
     //printf("current directory is %s\n", get_current_dir_name());
     // 1) Load enclave
     st = sgx_create_enclave(enclave_path, SGX_DEBUG_FLAG, &tok, &updated, &eid, NULL);
