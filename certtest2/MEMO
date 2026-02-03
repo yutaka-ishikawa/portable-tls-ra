@@ -1,3 +1,5 @@
+#ifdef CLIENT_USE_QVL
+
 1) libcbor is forked.
 2) submodule
    $ git submodule add git@github.com:yutaka-ishikawa/libcbor.git certtest2/Enclave/external/libcbor

@@ -35,6 +35,12 @@ do {				\
     }				\
 } while(0)
 
+void ocall_time(uint64_t *tp)
+{
+    time_t	tm;
+    time(&tm);
+    *tp = (uint64_t) tm;
+}
 
 void ocall_open(const char *path, int flags, int *ret)
 {
@@ -242,18 +248,18 @@ main(int argc, char** argv)
     sgx_launch_token_t tok = {0};
     int updated = 0;
 
-    printf("current directory is %s\n", get_current_dir_name());
+    //printf("current directory is %s\n", get_current_dir_name());
     // 1) Load enclave
     st = sgx_create_enclave(enclave_path, SGX_DEBUG_FLAG, &tok, &updated, &eid, NULL);
     if (st != SGX_SUCCESS) {
         printf("sgx_create_enclave failed: 0x%x\n", st);
         return 1;
     }
-    printf("Step %d enclave_path=%s\n", __LINE__, enclave_path);
-
+#if 0
     for(int i = 0; i < argc; i++) {
 	printf("argv[%d] = %s\n", i, argv[i]);
     }
+#endif
 
     makeargs(argc, argv, &argpos, &bp, &blen);
     st = e_main(eid, &ret, argc, argpos, blen, bp);

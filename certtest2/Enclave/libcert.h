@@ -59,10 +59,29 @@ do {				\
     }				\
 } while(0)
 
+#define TLSRA_CALLmsg(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val != 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);	\
+	goto label;		\
+    }				\
+} while(0)
+
+
 #define TLSRA_CALL0msg(label, val, lib, ...)	\
 do {				\
     val = lib;			\
     if (val == 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);	\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_CALLNmsg(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val < 0) {		\
 	fprintf(stderr, ##__VA_ARGS__);	\
 	goto label;		\
     }				\

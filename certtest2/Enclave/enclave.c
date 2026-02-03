@@ -274,12 +274,12 @@ sgx_status_t e_main(int argc, int *argpos, int blen, char *buf)
 {
     char	**argv;
     size_t	faddr = 0;
-    ocall_print("Enclave called\n");
 
+    //ocall_print("Enclave called\n");
     argv = makeargv(argc, argpos, buf);
 
-    ocall_print("\t calling main routine\n");
-    printf("%s: testing printf\n", __func__);
+    //ocall_print("\t calling main routine\n");
+    //printf("%s: testing printf\n", __func__);
 
     main(argc, argv);
     return SGX_SUCCESS;

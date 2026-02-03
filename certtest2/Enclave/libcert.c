@@ -37,9 +37,11 @@
 #include "libcert.h"
 #include <cbor.h>
 
+#ifdef SGX_ENCLAVE
 /* SGX */
 #include <sgx_utils.h>
 #include "sgxenv.h"
+#endif
 
 //#define REPORT_CRITICAL
 #ifdef REPORT_CRITICAL
@@ -49,6 +51,8 @@
 #endif
 #define YEAR_ONE	(60L*60L*24L*365L)
 
+int	sgx_dflag = 0;
+int	sgx_vflag = 0;
 
 static int
 myssl_printerr(const char *str, size_t len, void *u)
@@ -106,6 +110,7 @@ verify_SGX_quote(const ASN1_OCTET_STRING *oct,
  *		tag: IANA_CBOR_TAG_INTEL_TEE_QUOTE
  *   extract_cbor_evidence_and_compare_hash(...)
  */
+extern sgx_status_t sgx_read_rand(uint8_t *buf, size_t size);
 int
 verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
 		    uint8_t *pem_pubkey, size_t pem_pubkeysz)
@@ -113,20 +118,64 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
     const uint8_t	*evi = ASN1_STRING_get0_data(oct);
     int			sz = ASN1_STRING_length(oct);
     uint8_t		*out_qt;
-    uint32_t		*out_qtsz;
+    uint32_t		out_qtsz;
     int			rc = 0;
+    time_t		curtime;
+    quote3_error_t	qrc;
+    uint8_t		*sup = NULL;
+    uint32_t		supsz;
+    sgx_ql_qe_report_info_t qve_repo_info;
+    sgx_ql_qv_result_t	qv_result;
 
-    fprintf(stderr, "%s: called oct size(%d)\n", __func__, sz);
+    SGX_DEBUG {
+	fprintf(stderr, "%s: called oct size(%d)\n", __func__, sz);
+    }
 
-    TLSRA_SYSCALL0(err, out_qt , (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE),
+    ocall_time((uint64_t*) &curtime);
+    TLSRA_CALL0msg(err0, out_qt , (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE),
 		   "malloc fails\n");
-    rc = extract_cbor_evidence_and_compare_hash(evi, sz,
-						pem_pubkey,
-						pem_pubkeysz,
-						out_qt, out_qtsz);
-    fprintf(stderr, "%s: rc = %d (0x%x)\n", __func__, rc, rc);
+    TLSRA_CALLmsg(err0, rc,
+		  extract_cbor_evidence_and_compare_hash(evi, sz,
+							 pem_pubkey,
+							 pem_pubkeysz,
+							 out_qt, &out_qtsz),
+		  "%s: evidence does not have the correct pubkey\n", __func__);
+    /*
+     * allocating  supplemental data for sgx_tls_verify_quote_ocall
+     */
+    TLSRA_CALLmsg(err0, rc,
+		  sgx_tls_get_supplemental_data_size_ocall(&qrc, &supsz),
+		  "%s: sgx_tls_get_supplemental_data_size_ocall fails\n", __func__);
+    if (qrc != SGX_QL_SUCCESS) goto err0;
+    TLSRA_CALL0msg(err0, sup, (uint8_t *) malloc(supsz),
+		   "%s: malloc fails\n", __func__);
+
+    /* report_info initialization */
+    TLSRA_CALLmsg(err0, rc, sgx_read_rand((unsigned char *)&qve_repo_info.nonce,
+					  sizeof(sgx_quote_nonce_t)),
+		  "%s: sgx_read_rand fails\n", __func__);
+    sgx_self_target(&qve_repo_info.app_enclave_target_info);
+
+    /* OCALL to verify SGX quote */
+    rc = sgx_tls_verify_quote_ocall(&qrc, out_qt, out_qtsz,
+				     curtime,
+				     &qv_result,
+				     &qve_repo_info,
+				     sizeof(sgx_ql_qe_report_info_t),
+				     sup, supsz);
+    if (qv_result != SGX_QL_QV_RESULT_OK) {
+	fprintf(stderr, "Warning: Quote verification has non-critical error."
+		" error type(0x%x).\n"
+		" See dcap_source/QuoteVerification/QvE/Include/sgx_qve_header.h",
+		qv_result);
+    }
+    SGX_DEBUG {
+	fprintf(stderr, "%s: SUCESS\n", __func__);
+    }
     return VERIFIED_EVIDENCE;
-err:
+err0:
+    printf("%s: FAIL\n", __func__);
+    if (sup) free(sup);
     return 0;
 }
 
@@ -149,28 +198,30 @@ verify_contents(X509 *x509)
     int		pubsz = 0;
     EVP_PKEY	*pkey = NULL;
     BIO		*bio = NULL;
-    int		nent, i;
+    int		i;
 
-    nent = X509_get_ext_count(x509);
-    printf("%s: extension count: %d\n", __func__, nent);
-
+    SGX_DEBUG {
+	int	nent = X509_get_ext_count(x509);
+	fprintf(stderr, "%s: extension count: %d\n", __func__, nent);
+    }
     /* extract public key from cert */
     TLSRA_CALL0msg(err, pkey, X509_get_pubkey(x509),
 		   "Cannot get public key from cert");
     TLSRA_CALL0(err, bio, BIO_new(BIO_s_mem()));
     TLSRA_CALL1(err, rc, PEM_write_bio_PUBKEY(bio, pkey));
     pubsz = BIO_pending(bio);
-    printf("%s: pubsz = %d\n", __func__, pubsz);
     TLSRA_CALL0msg(err, pubkey, malloc(pubsz + 1),
 		   "%s: Cannot allocate memory\n", __func__);
     memset(pubkey, 0, pubsz + 1);
     rc = BIO_read(bio, pubkey, pubsz);
     if (rc != pubsz) {
-	printf("%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
+	fprintf(stderr, "%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
     }
     for (i = 0; verify_tab[i].oid_txt != 0; i++) {
 	int	loc;
-	printf("%s: oid=%s\n", __func__, verify_tab[i].oid_txt);
+	SGX_DEBUG {
+	    fprintf(stderr, "%s: oid=%s\n", __func__, verify_tab[i].oid_txt);
+	}
 	target = OBJ_txt2obj(verify_tab[i].oid_txt, 1);
 	if (target == NULL) continue;
 	loc = X509_get_ext_by_OBJ(x509, target, -1);
@@ -206,23 +257,21 @@ make_keypair(uint8_t **pbkey, int *pbsz, uint8_t **prkey, int *prsz)
     /**/
     TLSRA_CALL1(err0, rc, PEM_write_bio_PUBKEY(bio, pkey));
     pubsz = BIO_pending(bio);
-    printf("pubsz = %d\n", pubsz);
     TLSRA_LIBCALL0(err0, pubkey, malloc(pubsz + 1));
     memset(pubkey, 0, pubsz + 1);
     rc = BIO_read(bio, pubkey, pubsz);
     if (rc != pubsz) {
-	printf("%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
+	fprintf(stderr, "%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
     }
     /* */
     TLSRA_CALL1(err0, rc,
 		PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL));
     privsz = BIO_pending(bio);
-    printf("privsz = %d\n", privsz);
     TLSRA_LIBCALL0(err0, privkey, malloc(privsz + 1));
     memset(privkey, 0, privsz + 1);
     rc = BIO_read(bio, privkey, privsz);
     if (rc != privsz) {
-	printf("%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
+	fprintf(stderr, "%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
     }
     BIO_free(bio);
     if (pbkey) {
@@ -254,7 +303,7 @@ add_ext(X509 *cert, int nid, char *val, X509V3_CTX *ctx)
     return rc;
 }
 
-
+#ifdef SGX_ENCLAVE
 /*
  * Intel SGX cbor evidence contains:
  *	claims: cbor string("pubkey-hash")
@@ -264,28 +313,87 @@ add_ext(X509 *cert, int nid, char *val, X509V3_CTX *ctx)
  */
 int
 make_certificate_evidence(uint8_t *pubkey, int pubksz,
-			  uint8_t *quote, size_t qsz,
+			  uint8_t **quote, uint32_t *qsz,
 			  uint8_t **evidence, size_t *evsz)
 {
     uint8_t	*claims = NULL;
     size_t	csz;
+    int		rc;
+    quote3_error_t	qrc;
+    sgx_report_t	app_report;
+    sgx_target_info_t	target_info;
+    sgx_report_data_t	report_data = { 0 };
+
     /*
      * cbor claims: pubkey-hash only
      */
-    make_cbor_sgx_claims(pubkey, pubksz, &claims, &csz);
+    rc = make_cbor_sgx_claims(pubkey, pubksz, &claims, &csz);
+    if (rc < 0) {
+	fprintf(stderr, "%s: error during claims creation\n", __func__);
+	return -1;
+    }
+    SHA256(claims, csz, (unsigned char *) &report_data);
     /*
-     * cbor evidence: quote and claim are stored as bytestring in array
+     * claims are used for user report
+     */
+    /* OCALL to get target info of QE */
+    TLSRA_CALLmsg(err0, rc,
+		  sgx_tls_get_qe_target_info_ocall(&qrc, &target_info,
+						   sizeof(sgx_target_info_t)),
+		  "%s: sgx_tls_get_qe_target_info_ocall error\n", __func__);
+    if (qrc != SGX_QL_SUCCESS) {
+	fprintf(stderr,
+		"%s: sgx_tls_get_qe_target_info_ocall error\n", __func__);
+	goto err0;
+    }
+    TLSRA_CALLmsg(err0, rc,
+		  sgx_create_report(&target_info, &report_data, &app_report),
+		  "%s: sgx_create_report error\n", __func__);
+    TLSRA_CALLmsg(err0, rc,
+		  sgx_tls_get_quote_size_ocall(&qrc, qsz),
+		  "%s: sgx_tls_get_quote_size_ocall\n", __func__);
+    if (qrc != SGX_QL_SUCCESS) {
+	fprintf(stderr,
+		"%s: sgx_tls_get_quote_size_ocall\n", __func__);
+	goto err0;
+    }
+    TLSRA_CALL0msg(err0, *quote, malloc(*qsz), "%s: malloc fails\n", __func__);
+    TLSRA_CALLmsg(err0, rc,
+		  sgx_tls_get_quote_ocall(&qrc, &app_report,
+					  sizeof(app_report), *quote, *qsz),
+		  "%s: sgx_tls_get_quote_ocall error\n", __func__);
+    /*
+     * cbor evidence: quote and claims are stored as bytestring in array
      *		      this array is tagged with value 60000
      */
-    make_cbor_sgx_evidence(quote, qsz, claims, csz, evidence, evsz);
+    rc = make_cbor_sgx_evidence(*quote, *qsz, claims, csz, evidence, evsz);
+    if (rc < 0) {
+	fprintf(stderr, "%s: error during evidence creation\n", __func__);
+	return -1;
+    }
+    return 0;
+err0:
+    return -1;
 }
+#else
+int
+make_certificate_evidence(uint8_t *pubkey, int pubksz,
+			  uint8_t *quote, uint32_t qsz,
+			  uint8_t **evidence, size_t *evsz)
+{
+    fprintf(stderr, "%s: Not yet implemented\n", __func__);
+    return -1;
+}
+#endif
 
 static void
 write_pems(const char *path, X509 *cert, EVP_PKEY *pkey)
 {
     char	buf[1024];
 
-    fprintf(stderr, "%s: %s\n", __func__, path);
+    SGX_DEBUG {
+	fprintf(stderr, "%s: %s\n", __func__, path);
+    }
     /* cert */
     strncpy(buf, path, 1024); strncat(buf, ".pem", 1023);
     TLSRA_X509_write(buf, cert);
@@ -372,8 +480,9 @@ make_x509cert(X509 **px509, EVP_PKEY *pkey,
 	add_ext(x509, NID_subject_key_identifier, "hash", &ctx);
 	/* authority key identifier */
 	add_ext(x509, NID_authority_key_identifier, "keyid:always", &ctx);
-
-	printf("%s: Self-signed certificate\n", __func__);
+	SGX_DEBUG {
+	    fprintf(stderr, "%s: Self-signed certificate\n", __func__);
+	}
     }
     /*
      * Extensions
@@ -396,10 +505,8 @@ make_x509cert(X509 **px509, EVP_PKEY *pkey,
 	data = ASN1_OCTET_STRING_new();
 	ASN1_OCTET_STRING_set(data, evidence, evsz);
 	TLSRA_CALL0(err0, obj, OBJ_txt2obj(TCG_DICE_TAGGED_OID_STR, 1));
-	printf("%s: obj=%p, data=%p\n", __func__, obj, data);
 	/* ext is reused */
 	X509_EXTENSION_create_by_OBJ(&ext, obj, critical, data);
-	printf("%s: ext=%p\n", __func__, ext);
 	X509_add_ext(x509, ext, -1);
 	ASN1_OCTET_STRING_free(data);
 	ASN1_OBJECT_free(obj);
@@ -412,16 +519,10 @@ make_x509cert(X509 **px509, EVP_PKEY *pkey,
     /* successfuly created */
     return 1;
 err0:
-    printf("%s: error\n", __func__);
+    fprintf(stderr, "%s: error\n", __func__);
     return 0;
 }
 
-void
-generate_quote(uint8_t **pquote, int *qsz)
-{
-    *qsz = 512;
-    *pquote = (uint8_t*) malloc(*qsz);
-}
 
 /*
  * A revocation list is not required, and thus no X509_STORE_add_crl() calls
@@ -461,6 +562,18 @@ err:
 /*
  *
  */
+void
+mygetopt(int argc, char **argv)
+{
+    int	i;
+    for (i = 1; i < argc; i++) {
+	switch (argv[i][1]) {
+	case 'd': sgx_dflag = 1; break;
+	case 'v': sgx_vflag = 1; break;
+	}
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -469,20 +582,31 @@ main(int argc, char **argv)
     uint8_t	*privkey = NULL;
     int		pubsz = 0;
     int		privsz = 0;
-    uint8_t	*quote;
-    int		qsz;
+    uint8_t	*quote = NULL;
+    uint32_t	qsz = 0;
     EVP_PKEY	*pkey;
     uint8_t	*evidence;
     size_t	evsz;
+    int		opt, rc;
+
+    mygetopt(argc, argv);
     pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
-    printf("pubsz = %d, privsz = %d\n", pubsz, privsz);
+    SGX_DEBUG {
+	fprintf(stderr, "pubsz = %d, privsz = %d\n", pubsz, privsz);
+    }
     /*
-     * 
-     * calling quote generation, and then
+     * quote and evidence are created
      */
-    generate_quote(&quote, &qsz);
-    make_certificate_evidence(pubkey, pubsz,
-			      quote, qsz, &evidence, &evsz);
+    rc = make_certificate_evidence(pubkey, pubsz,
+				   &quote, &qsz, &evidence, &evsz);
+    if (rc == 0) {
+	printf("Certificate evidence has been created successfuly.\n");
+    } else {
+	printf("Creation of certificate evidence failed.\n");
+    }
+    /*
+     * quote and evidence are stored in certificate extension field
+     */
     make_x509cert(&cert, pkey, quote, qsz, evidence, evsz);
     write_pems("mycert", cert, pkey);
 #if 0

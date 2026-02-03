@@ -205,7 +205,6 @@ PEM2DER(const uint8_t *pem_pub, size_t pem_len, uint8_t *der, size_t *der_len)
     }
     tlen = raw_base64_decode(pem, der, 0, &rc);
     free(pem);
-    printf("%s: length = %d\n", __func__, tlen);
     if (!rc) {
         *der_len = len;
     }
@@ -307,30 +306,55 @@ int
 make_cbor_sgx_claims(uint8_t *pubkey, int pubksz,
 		 uint8_t **claims, size_t *csz)
 {
-    cbor_item_t		*cbor_claims;
-    cbor_item_t		*cbor_pubkey_hash_key;
-    cbor_item_t		*cbor_pubkey_hash_val;
-    uint8_t		*hash_entry_buf;
+    cbor_item_t		*cbor_claims = NULL;
+    cbor_item_t		*cbor_pubkey_hash_key = NULL;
+    cbor_item_t		*cbor_pubkey_hash_val = NULL;
+    uint8_t		*hash_entry_buf = NULL;
     size_t		hash_entry_buf_size;
-    uint8_t		*claims_buf;
+    uint8_t		*claims_buf = NULL;
     size_t		claims_bufsz;
     int	rc;
 
-    cbor_claims = cbor_new_definite_map(1);
-    cbor_pubkey_hash_key = cbor_build_string("pubkey-hash");
-    rc = make_cbor_pkhash_entry(pubkey, pubksz, &hash_entry_buf, &hash_entry_buf_size);
-    cbor_pubkey_hash_val = cbor_build_bytestring(hash_entry_buf, hash_entry_buf_size);
+    TLSRA_CALL0msg(err0, cbor_claims, cbor_new_definite_map(1),
+		   "%s: Cannot allocate cbor map\n", __func__);
+    TLSRA_CALL0msg(err1, cbor_pubkey_hash_key, cbor_build_string("pubkey-hash"),
+		   "%s: Cannot build cbor string\n", __func__);
+    TLSRA_CALLNmsg(err2, rc, make_cbor_pkhash_entry(pubkey, pubksz, &hash_entry_buf,
+					      &hash_entry_buf_size),
+		   "%s: Cannot make hash\n", __func__);
+    TLSRA_CALL0msg(err3, cbor_pubkey_hash_val,
+		   cbor_build_bytestring(hash_entry_buf, hash_entry_buf_size),
+		   "%s: Cannot build byte string\n", __func__);
     free(hash_entry_buf);
+    hash_entry_buf = NULL;
     {
 	struct cbor_pair cbor_pubkey_hash_pair =
 	    { .key = cbor_pubkey_hash_key,
 	      .value = cbor_pubkey_hash_val };
-	rc = cbor_map_add(cbor_claims, cbor_pubkey_hash_pair);
+	/* return value is boolean */
+	TLSRA_CALL0msg(err4, rc,
+		       cbor_map_add(cbor_claims, cbor_pubkey_hash_pair),
+		       "%s: cbor_map_add error\n", __func__);
     }
     cbor_serialize_alloc(cbor_claims, &claims_buf, &claims_bufsz);
-    *claims = claims_buf;
-    *csz = claims_bufsz;
-    return 0;
+    if (claims_buf != NULL) {
+	cbor_decref(&cbor_pubkey_hash_val);
+	cbor_decref(&cbor_pubkey_hash_key);
+	cbor_decref(&cbor_claims);
+	*claims = claims_buf;
+	*csz = claims_bufsz;
+	return 0;
+    }
+err4:
+    cbor_decref(&cbor_pubkey_hash_val);
+err3:
+    if (hash_entry_buf) free(hash_entry_buf);
+err2:
+    cbor_decref(&cbor_pubkey_hash_key);
+err1:
+    cbor_decref(&cbor_claims);
+err0:
+    return -1;
 }
 
 /*
@@ -349,18 +373,39 @@ make_cbor_sgx_evidence(uint8_t *quote, size_t quotesz,
     size_t	ebufsz;
     int	rc;
 
-    evidence = cbor_new_definite_array(2);
+    *out_evidence = NULL; *evidence_size = 0;
+    TLSRA_CALL0msg(err0, evidence, cbor_new_definite_array(2),
+		   "%s: cannot create cbor array\n", __func__);
     { /* cbor_evidence: quote and claim bytestring */
 	cbor_item_t	*cbor_quote;
 	cbor_item_t	*cbor_claims;
-	cbor_quote = cbor_build_bytestring(quote, quotesz);
-	cbor_claims = cbor_build_bytestring(claim, claimsz);
-	rc = cbor_array_push(evidence, cbor_quote);
-	rc = cbor_array_push(evidence, cbor_claims);
+	TLSRA_CALL0msg(err1, cbor_quote,
+		       cbor_build_bytestring(quote, quotesz),
+		       "%s: cannot create bytestring\n", __func__);
+	TLSRA_CALL0msg(err2, cbor_claims,
+		       cbor_build_bytestring(claim, claimsz),
+		       "%s: cannot create bytestring\n", __func__);
+	/* result value is boolean */
+	TLSRA_CALL0msg(err3, rc, cbor_array_push(evidence, cbor_quote),
+		       "%s: error cbor_array_push\n", __func__);
+	TLSRA_CALL0msg(err3, rc, cbor_array_push(evidence, cbor_claims),
+		       "%s: error cbor_array_push\n", __func__);
+	goto ok;
+    err3:
+	cbor_decref(&cbor_claims);
+    err2:
+	cbor_decref(&cbor_quote);
+    err1:
+	cbor_decref(&evidence);
+	return -1;
+    ok:
 	cbor_decref(&cbor_claims);
 	cbor_decref(&cbor_quote);
     }
-    tagged_evidence = cbor_new_tag(IANA_CBOR_TAG_INTEL_TEE_QUOTE);
+    /**/
+    TLSRA_CALL0msg(err4, tagged_evidence,
+		   cbor_new_tag(IANA_CBOR_TAG_INTEL_TEE_QUOTE),
+		   "%s: cannot create a tag\n", __func__);
     cbor_tag_set_item(tagged_evidence, evidence);
 
     /* tagged evidence is serialized */
@@ -370,6 +415,11 @@ make_cbor_sgx_evidence(uint8_t *quote, size_t quotesz,
     *out_evidence = ebuf;
     *evidence_size = ebufsz;
     return 0;
+err4:
+    cbor_decref(&tagged_evidence);
+    cbor_decref(&evidence);
+err0:
+    return -1;
 }
 
 /* a common function to compare hash from target_buf with quote */
@@ -572,7 +622,6 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
             SGX_ERROR_OUT_OF_MEMORY : SGX_ERROR_UNEXPECTED;
         goto out;
     }
-    printf("%s: %d\n", __func__, __LINE__);
     if (!cbor_isa_tag(cbor_tagged_evidence)
             || cbor_tag_value(cbor_tagged_evidence) != TCG_DICE_TAGGED_EVIDENCE_TEE_QUOTE_CBOR_TAG)     
     {
@@ -592,7 +641,6 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
         goto out;
     }
 
-    printf("%s: %d\n", __func__, __LINE__);
     cbor_quote = cbor_array_get(cbor_evidence, /*index=*/0);
     if (!cbor_quote || !cbor_isa_bytestring(cbor_quote) || !cbor_bytestring_is_definite(cbor_quote)
             || cbor_bytestring_length(cbor_quote) == 0) {
@@ -601,7 +649,6 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
     }
 
     quote_size = cbor_bytestring_length(cbor_quote);
-    printf("%s: %d quote_size(%ld) QUOTE_MIN_SIZE(%d)\n", __func__, __LINE__, quote_size, QUOTE_MIN_SIZE);
     if (quote_size < QUOTE_MIN_SIZE) {
         ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
         goto out;
@@ -612,8 +659,6 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
         goto out;
     }
     memcpy(quote, cbor_bytestring_handle(cbor_quote), quote_size);
-
-    printf("%s: %d\n", __func__, __LINE__);
 
     cbor_claims = cbor_array_get(cbor_evidence, /*index=*/1);
     if (!cbor_claims || !cbor_isa_bytestring(cbor_claims)
@@ -634,6 +679,7 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
     {
         goto out;
     }
+
     /* parse and verify CBOR claims */
     cbor_claims_map = cbor_load(claims_buf, claims_buf_size, &cbor_result);
     if (cbor_result.error.code != CBOR_ERR_NONE) {
@@ -684,7 +730,6 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
             }
         }
     }
-
     memcpy(out_quote, quote, quote_size);
     *out_quote_size = (uint32_t)quote_size;
     ret = SGX_SUCCESS;
