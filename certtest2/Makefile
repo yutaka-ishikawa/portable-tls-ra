@@ -2,7 +2,7 @@ SGX_MODE = HW
 MY_SEARCHPATH = --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include/ \
 --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux/package/include/
 
-MYCOPTION = -DSGX_ENCLAVE -DOPENSSL_DEV_NO_ATOMICS
+MYCOPTION = -DSGX_ENCLAVE -DOPENSSL_DEV_NO_ATOMICS -DLIBCERT_TEST
 #
 # /usr/include is for cbor
 MYINCLUDE = -I/opt/intel/sgxssl/include \
