@@ -13,7 +13,9 @@
 #include <openssl/err.h>
 #include <openssl/provider.h>
 
+#ifdef SGX_ENCLAVE
 #include <sgxenv.h>
+#endif
 #include <ptlsra.h>
 #include "tlsra_test.h"
 
@@ -28,12 +30,6 @@ int	Cflag = 0;	/* require Client Certificate */
 int	count = DEFAULT_COUNT;
 uint16_t port = DEFAULT_TCP_PORT;
 
-static int
-myssl_printerr(const char *str, size_t len, void *u)
-{
-    printf("SSLerror: %s\n", str);
-    return -1;
-}
 
 static int
 getoption(int argc, char **argv)

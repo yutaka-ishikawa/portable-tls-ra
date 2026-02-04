@@ -167,3 +167,10 @@ myssl_shutdown(SSL_CTX *ctx, SSL *ssl) {
     SSL_CTX_free(ctx);
     ERR_free_strings();
 }
+
+int
+myssl_printerr(const char *str, size_t len, void *u)
+{
+    printf("SSLerror: %s\n", str);
+    return -1;
+}
