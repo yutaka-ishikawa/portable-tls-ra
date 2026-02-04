@@ -1,0 +1,16 @@
+#
+#
+#
+Testing TLS server inside Enclave.
+The client side uses ../test/tlsra_client running on the outside of enclave.
+
+1) make
+2) make oreore
+   creating ./CA/my_ca.key, ./CA/my_ca.crt, ./CA/my_ca.srl, and hashed-files
+   creating ./server.key, ./server.crt, and ./server.csr
+3.1) make run-tlsra_server
+3.2) cd ../test/; make; make run-tlsra_client
+  
+For Enclave signing
+$ openssl genrsa -3 -out Enclave/enclave_private.pem 3072
+$ openssl rsa -in Enclave/enclave_private.pem -pubout -out Enclave/enclave_public.pem

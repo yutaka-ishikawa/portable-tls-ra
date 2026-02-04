@@ -96,7 +96,7 @@ endif
 
 # ==== Files ====
 EDL := Enclave/Enclave.edl
-TRUSTED_SRCS := Enclave/enclave.c Enclave/libtlsra.c Enclave/libsock.c Enclave/tlsra_server.c Enclave/Enclave_t.c
+TRUSTED_SRCS := Enclave/enclave.c Enclave/libtlsra.c Enclave/libsock.c Enclave/tlsra_server.c Enclave/dummy.o Enclave/Enclave_t.c
 TRUSTED_OBJS := $(TRUSTED_SRCS:.c=.o)
 
 UNTRUSTED_SRCS := Host/host.c Host/untrusted_sgx_socket.c Enclave/Enclave_u.c
