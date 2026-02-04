@@ -1,6 +1,7 @@
 /*
  * Portable TLS-RA
  */
+extern int	myssl_printerr(const char *str, size_t len, void *u);
 #define TLSRA_LIBCALL0(label, val, lib)		\
 do {				\
     val = lib;			\

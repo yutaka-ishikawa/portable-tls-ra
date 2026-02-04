@@ -1,3 +1,6 @@
+#define VERIFIED_QUOTE		0x01
+#define VERIFIED_EVIDENCE	0x02
+
 /*
  * attestation evidence data tags,
  * https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
@@ -128,3 +131,13 @@ extern sgx_status_t	extract_cbor_evidence_and_compare_hash(
 				uint8_t* out_quote,
 				uint32_t* out_quote_size);
 
+/**/
+extern EVP_PKEY	*make_keypair(uint8_t **pbkey, int *pbsz,
+			      uint8_t **prkey, int *prsz);
+extern int	make_certificate_evidence(uint8_t *pubkey, int pubksz,
+					  uint8_t **quote, uint32_t *qsz,
+					  uint8_t **evidence, size_t *evsz);
+extern int	make_x509cert(X509 **px509, EVP_PKEY *pkey,
+			      uint8_t *quote, int qtsz,
+			      uint8_t *evidence, int evsz);
+extern int	verify_cert(X509 *x509);

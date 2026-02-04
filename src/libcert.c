@@ -54,12 +54,6 @@
 int	sgx_dflag = 0;
 int	sgx_vflag = 0;
 
-static int
-myssl_printerr(const char *str, size_t len, void *u)
-{
-    printf("SSLerror: %s\n", str);
-    return -1;
-}
 
 /*
  * generate PKI key pair
@@ -90,8 +84,6 @@ err0:
 /*
  * system dependent verification table
  */
-#define VERIFIED_QUOTE		0x01
-#define VERIFIED_EVIDENCE	0x02
 
 int
 verify_SGX_quote(const ASN1_OCTET_STRING *oct,
@@ -423,7 +415,7 @@ read_pems(const char *path, X509 **pcert)
  * Self-signed Certificate with Quote using X509.Extensions
  *	
  */
-static int
+int
 make_x509cert(X509 **px509, EVP_PKEY *pkey,
 	      uint8_t *quote, int qtsz,
 	      uint8_t *evidence, int evsz)
@@ -487,7 +479,7 @@ make_x509cert(X509 **px509, EVP_PKEY *pkey,
     /*
      * Extensions
      */
-    {	/* quote 1.2.840.113741.1.13.1 */
+    if (quote || evidence) {	/* quote 1.2.840.113741.1.13.1 */
 	/* oid: quote */
 	ASN1_OBJECT		*obj = NULL;
 	ASN1_OCTET_STRING	*data = NULL;
@@ -557,7 +549,7 @@ err:
     return rc;
 }
 
-#define LIBCERT_TEST
+//#define LIBCERT_TEST
 #ifdef LIBCERT_TEST
 /*
  *

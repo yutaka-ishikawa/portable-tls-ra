@@ -36,6 +36,7 @@
  */
 #include "sgxenv.h"
 #include "ptlsra.h"
+#include "libcert.h"
 
 #define DEBUG	if (dflag)
 
@@ -97,7 +98,7 @@ TLSRA_show_subject_name(X509 *x509)
 #endif
 }
 
-static int
+int
 myssl_printerr(const char *str, size_t len, void *u)
 {
     char	*buf = NULL;
@@ -206,7 +207,7 @@ TLSRA_X509_print(X509 *x509)
 /*
  * PEM X509 read
  */
-#define X509_SIZE	(4*1024)
+#define X509_SIZE	(32*1024)
 X509	*
 TLSRA_X509_read(const char *fname)
 {
@@ -408,7 +409,7 @@ TLSRA_PrivateKey_write(const char *fname, EVP_PKEY *pkey)
 #endif
 }
 
-#define PEM_SIZE	(4*1024)
+#define PEM_SIZE	(32*1024)
 EVP_PKEY *
 TLSRA_PKEY_read(const char *pkeyfname)
 {
@@ -593,17 +594,32 @@ on_client_hello(SSL *ssl, int *al, void *arg)
     //TLSRA_CALL1(err3, rc, SSL_use_certificate_file(ssl, "public.key", SSL_FILETYPE_PEM));
     //TLSRA_CALL1(err3, rc, SSL_use_PrivateKey_file(ssl, "private.key", SSL_FILETYPE_PEM));
     if (rflag) {
-	X509		*x509;
+	X509		*cert = NULL;
+	uint8_t		*pubkey = NULL;
+	uint8_t		*privkey = NULL;
+	int		pubsz = 0;
+	int		privsz = 0;
+	uint8_t		*quote = NULL;
+	uint32_t	qsz = 0;
 	EVP_PKEY	*pkey;
+	uint8_t		*evidence;
+	size_t		evsz;
+	
 	printf("%s: TLS-RA mode\n", __func__);
-	if (mysslra_x509(&x509, &pkey, "./CA/my_ca.crt", "./CA/my_ca.key",
-			 report, len) != 1) {
-	    fprintf(stderr, "Cannot generate certificate\n");
-	    abort();
+	pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
+	rc = make_certificate_evidence(pubkey, pubsz,
+				       &quote, &qsz, &evidence, &evsz);
+	if (rc == 0) {
+	    printf("Certificate evidence has been created successfuly.\n");
+	} else {
+	    printf("Creation of certificate evidence failed.\n"
+		   "No evidence is added in the cert\n");
 	}
-	printf("%s: Subject: ", __func__); TLSRA_show_subject_name(x509);
-	printf("%s: Issuer: ", __func__); TLSRA_show_issuer_name(x509);
-	TLSRA_CALL1(err3, rc, SSL_use_certificate(ssl, x509));
+	/*
+	 * quote and evidence are stored in certificate extension field
+	 */
+	make_x509cert(&cert, pkey, quote, qsz, evidence, evsz);
+	TLSRA_CALL1(err3, rc, SSL_use_certificate(ssl, cert));
 	TLSRA_CALL1(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     } else {
 	/* cert and pkey files are assumed PEM format, not ASN1:
@@ -673,11 +689,8 @@ mysslra_verify(int ok, X509 *x509, unsigned char *nonce)
 static int
 verify(int ok, X509_STORE_CTX *ctx)
 {
-#define O_SIZE	1024
     X509	*x509;
     SSL		*ssl;
-    size_t	sz;
-    unsigned char nonce[O_SIZE];
 
     DEBUG {
 	fprintf(stderr, "%s: Server certificate verification\n", __func__);
@@ -688,27 +701,11 @@ verify(int ok, X509_STORE_CTX *ctx)
 	fprintf(stderr, "%s: Server Cert verificaion fails.\n", __func__);
 	return ok;
     }
-    sz = SSL_get_client_random(ssl, nonce, O_SIZE);
-    DEBUG { /* debug */
-	int	depth = X509_STORE_CTX_get_error_depth(ctx);
-	char	subj[256];
-	fprintf(stderr, "\tSubject: "); TLSRA_show_subject_name(x509);
-	fprintf(stderr, "\tIssuer: "); TLSRA_show_issuer_name(x509);
-	fprintf(stderr, "\nServer Nonce: size = %ld\n", sz);
-	if (sz > 0) {
-	    dump("\tnonce = ", nonce, sz);
-	}
-	X509_NAME_oneline(X509_get_subject_name(x509), subj, sizeof(subj));
-	fprintf(stderr, "\tok=%d depth=%d ok=%d subject=%s\n", ok, depth, ok, subj);
-	// myssl_dump_x509(x509);
-    }
-    ok = mysslra_verify(ok, x509, nonce);
-    if (!ok) {
-	int err   = X509_STORE_CTX_get_error(ctx);
-	fprintf(stderr, "Server Cert verificaion fails.\n\t reason = %s\n",
-		X509_verify_cert_error_string(err));
-	// myssl_dump_x509(x509);
-	fprintf(stderr, "But become OK\n");
+    if (verify_cert(x509) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
+	fprintf(stderr, "Verification success.\n");
+	ok = 1;
+    } else {
+	fprintf(stderr, "Verification error, but become OK\n");
 	ok = 1;
     }
     return ok;
@@ -721,32 +718,43 @@ verify(int ok, X509_STORE_CTX *ctx)
 static int
 on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
 {
-#define O_SIZE	1024
-    unsigned char	report[512];
-    size_t	sz;
-    unsigned char	nonce[O_SIZE];
+    X509	*cert = NULL;
+    uint8_t	*pubkey = NULL;
+    uint8_t	*privkey = NULL;
+    int		pubsz = 0;
+    int		privsz = 0;
+    uint8_t	*quote = NULL;
+    uint32_t	qsz = 0;
+    uint8_t	*evidence;
+    size_t	evsz;
+    int	rc;
 
     DEBUG {
 	fprintf(stderr, "%s: is called !!!!!!!!!!!!!!!\n", __func__);
-    }
-    printf("%s: TLS-RA mode for client\n", __func__);
-    fprintf(stderr, "TLS-RA mode\n");
-    /* nonce from client */
-    sz = SSL_get_server_random(ssl, nonce, O_SIZE);
-    if (sz > 0) {
-	dump("\tnonce = ", nonce, sz);
     } else {
-	printf("%s: \tNo nonce has been received\n", __func__);
+	fprintf(stderr, "TLS-RA mode\n");
     }
-    memset(report, 0, sizeof(report));
-    memcpy(report, nonce, sz > 512 ? 512 : sz);
-    if (mysslra_x509(x509, pkey, "./CA/my_ca.crt", "./CA/my_ca.key",
-		     report, sz) != 1) {
-	fprintf(stderr, "Cannot generate certificate\n");
-	abort();
+    { /* nonce from client */
+	#define O_SIZE	1024
+	unsigned char nonce[O_SIZE];
+	size_t	sz = SSL_get_server_random(ssl, nonce, O_SIZE);
+	if (sz > 0) dump("\tnonce = ", nonce, sz);
+	else printf("%s: \tNo nonce has been received\n", __func__);
     }
-    fprintf(stderr, "\tSubject: "); TLSRA_show_subject_name(*x509);
-    fprintf(stderr, "\tIssuer: "); TLSRA_show_issuer_name(*x509);
+    *pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
+    rc = make_certificate_evidence(pubkey, pubsz,
+				   &quote, &qsz, &evidence, &evsz);
+    if (rc == 0) {
+	printf("Certificate evidence has been created successfuly.\n");
+    } else {
+	printf("Creation of certificate evidence failed.\n"
+	       "No evidence is added in the client cert\n");
+    }
+    /*
+     * quote and evidence are stored in certificate extension field
+     */
+    make_x509cert(&cert, *pkey, quote, qsz, evidence, evsz);
+    *x509 = cert;
     return 1; /* success */
 }
 
@@ -774,7 +782,7 @@ TLSRA_client_init(SSL_CTX *ctx, int flag)
     /* Require Server certificate and verification*/
     /* CA cert (PEM) */
     //TLSRA_CALL0(err, rc, SSL_CTX_load_verify_locations(ctx, "./CA/my_ca.crt", NULL));
-    TLSRA_CALL0(err, rc, SSL_CTX_load_verify_dir(ctx, "./CA"));
+    //TLSRA_CALL0(err, rc, SSL_CTX_load_verify_dir(ctx, "./CA"));
     rflag = flag;
 err:
     return rc;

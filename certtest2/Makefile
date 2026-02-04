@@ -183,7 +183,7 @@ certgg:
 #
 #
 run-tlsra_server:
-	./host -p 10101 -V -v -r
+	sudo ./host -p 10101 -V -v -r
 
 clean:
 	$(RM) $(TRUSTED_OBJS) $(UNTRUSTED_OBJS) $(ENCLAVE_SO) $(ENCLAVE_SIGNED) $(HOST_BIN) enclave.dump quote.bin
