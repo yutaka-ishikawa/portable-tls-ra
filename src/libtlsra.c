@@ -18,9 +18,11 @@
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
+#if 0
 #include <crypto/evp.h>
 #ifndef SGX_ENCLAVE
 #include <crypto/evp/evp_local.h>
+#endif
 #endif
 /*
  * OpenSSL source internal interface

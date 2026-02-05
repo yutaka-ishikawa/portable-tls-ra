@@ -38,7 +38,6 @@ main(int argc, char** argv)
 				    &tok, &updated, &eid, NULL),
 		 "sgx_create_enclave failed: 0x%x\n", rc);
     makeargs(argc, argv, &argpos, &bp, &blen);
-    rc = e_main(eid, &erc, argc, argpos, blen, bp);
     ENCLAVE_CALL(err1, rc,
 		 e_main(eid, &erc, argc, argpos, blen, bp),
 		 "e_mail invocation failed: 0x%x\n", rc);
