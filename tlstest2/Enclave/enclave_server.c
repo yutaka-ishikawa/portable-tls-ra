@@ -18,6 +18,26 @@ FILE	*stderr;
  * C library compatibility
  */
 int
+__printf_chk(FILE *fp, int flag, const char *fmt, ...)
+{
+    char	*bp = NULL;
+    size_t	len = 0;
+    va_list arg;
+    /* determine required size */
+    va_start(arg, fmt);
+    len = vsnprintf(bp, len, fmt, arg);
+    va_end(arg);
+    len++;
+    bp = malloc(len);
+    va_start(arg, fmt);
+    len = vsnprintf(bp, len, fmt, arg);
+    va_end(arg);
+    ocall_print(bp);
+    free(bp);
+    return len;
+}
+
+int
 fprintf(FILE *fp, const char *fmt, ...)
 {
     char	*bp = NULL;
@@ -34,6 +54,7 @@ fprintf(FILE *fp, const char *fmt, ...)
     va_end(arg);
     ocall_print(bp);
     free(bp);
+    return len;
 }
 
 int
@@ -53,6 +74,7 @@ printf(const char *fmt, ...)
     va_end(arg);
     ocall_print(bp);
     free(bp);
+    return len;
 }
 
 int

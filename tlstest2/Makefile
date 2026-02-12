@@ -203,8 +203,18 @@ certgg:
 run-tlsra_server:
 #	./host -p 10101 -V -v -r
 	./host_server -V -v -r
+trace-run-tlsra_server:
+	strace -f -o ./trace-server.txt ./host_server -V -v -r -O
 run-tlsra_client:
 	./host_client -d
+trace-run-tlsra_client:
+	strace -f -o ./trace-client.txt ./host_client -d -O
+#
+#
+extract-server-trace:
+	grep openat ./trace-server.txt > trace-server-openat.txt
+	awk -F'"' '/openat\(/ {print $$2}' trace-server-openat.txt > server-openfile.txt
+
 
 clean:
 	$(RM) $(TRUSTED_SERVER_OBJS) $(UNTRUSTED_SERVER_OBJS) \

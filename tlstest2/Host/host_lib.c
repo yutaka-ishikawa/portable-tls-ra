@@ -12,31 +12,40 @@
 #include "Enclave_u.h"
 #include "host.h"
 
+int	oflag = 0;
+#define OCALL_PRINT(oflag)	if (oflag) printf("OCALL %s INVOKED\n", __func__);
+
 void ocall_time(uint64_t *tp)
 {
     time_t	tm;
+
+    OCALL_PRINT(oflag);
     time(&tm);
     *tp = (uint64_t) tm;
 }
 
 void ocall_close(int fd, int *ret)
 {
+    OCALL_PRINT(oflag);
     *ret = close(fd);
 }
 
 void ocall_open(const char *path, int flags, int *ret)
 {
+    OCALL_PRINT(oflag);
     *ret = open(path, flags);
 }
 
 void ocall_write(int fd, const char *buf, size_t len, size_t *wlen)
 {
+    OCALL_PRINT(oflag);
     *wlen = write(fd, buf, len);
 }
 
 void ocall_read(int fd, char *buf, size_t len, size_t *blen)
 {
     int	rc;
+    OCALL_PRINT(oflag);
     rc = read(fd, buf, len);
     *blen = rc;
 }
@@ -81,8 +90,8 @@ void ocall_getenv(const char *env, char *result, int len)
 void ocall_get_current_time(uint64_t *p_current_time)
 {
     time_t rawtime;
+    OCALL_PRINT(oflag);
     time (&rawtime);
-
     if (!p_current_time)
         return;
     *p_current_time = (uint64_t) rawtime;
@@ -136,6 +145,7 @@ ocall_sock_connect(uint32_t ip, uint16_t port, int *psock)
     int	on = 1;
     int	sock = -1;
 
+    OCALL_PRINT(oflag);
     if((sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
 	perror("socket"); goto err;
     }
@@ -159,6 +169,7 @@ ocall_sock_serveropen(uint32_t ip, uint16_t port, int *rc)
     struct sockaddr_in	saddr_in;
     int	sock;
 
+    OCALL_PRINT(oflag);
     *rc = -1;
     if ((sock = socket(PF_INET, SOCK_STREAM, 0)) < 0 ) {
 	perror("socket");
@@ -192,6 +203,7 @@ ocall_sock_accept(int sock, int *rc)
     int	on = 1;
     int	fd;
 
+    OCALL_PRINT(oflag);
     *rc = -1;
     addrlen = sizeof(saddr);
     if ((fd = accept(sock, (struct sockaddr*) &saddr, &addrlen)) < 0) {
@@ -210,6 +222,15 @@ makeargs(int argc, char **argv, int **argpos, char **buf, int *buflen)
     int	i, len = 0, pos = 0;
     char	*tbuf;
     int		*targpos;
+    int	rc;
+
+    while ((rc = getopt(argc, argv, "O")) != -1) {
+	switch(rc) {
+	case 'O':
+	    printf("%s: oflag is set\n", __func__);
+	    oflag = 1; break;
+	}
+    }
     for (i = 0; i < argc; i++) {
         len += strlen(argv[i]) + 1;
     }
@@ -224,3 +245,63 @@ makeargs(int argc, char **argv, int **argpos, char **buf, int *buflen)
     }
     return 0;
 }
+
+/*
+ * The following functions are defined in the following files:
+ * SampleCode/SampleAttestedTLS/sgxssl/Linux/sgx/libsgx_usgxssl/uunistd.cpp
+ * Those functions are copied because of tracing which Linux functions are
+ * invoked from Enclave during SSL communication.
+ * 
+ */
+#if 0
+ssize_t
+u_sgxssl_write(int fd, const void* buf, size_t n)
+{
+    ssize_t ret;
+    OCALL_PRINT(oflag);
+    ret = write(fd, buf, n);
+    return ret;
+}
+	
+ssize_t
+u_sgxssl_read(int fd, void* buf, size_t count)
+{
+    ssize_t ret;
+    OCALL_PRINT(oflag);
+    ret = read(fd, buf, count);
+    return ret;
+}
+	
+int
+u_sgxssl_close(int fd)
+{
+    int ret;
+    OCALL_PRINT(oflag);
+    ret = close(fd) ;
+    return ret;
+}
+
+int
+u_sgxssl_open(const char *filename, int flags)
+{
+    OCALL_PRINT(oflag);
+    if (filename == NULL) return -1;
+    int ret = open(filename, flags);
+    return ret;
+}
+
+#include <sys/timeb.h>
+void
+u_sgxssl_ftime(void * timeptr, uint32_t timeb_len)
+{
+    //SGX_ASSERT_STRUCT_SIZE(struct timeb, timeb_len);
+    OCALL_PRINT(oflag);
+    ftime((struct timeb *) timeptr);
+}
+
+void u_sgxssl_usleep(int micro_seconds)
+{
+    OCALL_PRINT(oflag);
+    usleep(micro_seconds);
+}
+#endif

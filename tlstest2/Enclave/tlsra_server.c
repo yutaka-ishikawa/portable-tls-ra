@@ -232,16 +232,9 @@ main(int argc, char **argv)
 	X509	*cert = SSL_get_peer_certificate(ssl);
 	printf("cert = %p\n", cert);
     }
-    switch (tflag) {
-    case 0:
-	printf("SSL TEST\n");
-	error = sslread(ssl, buf, size, count);
-	break;
-    case 1:
-	printf("TCP TEST\n");
-	error = tcpread(csock, buf, size, count);
-	break;
-    }
+
+    printf("SSL TEST\n");
+    error = sslread(ssl, buf, size, count);
     if (error == 0) {
 	printf("Success:\n");
     }

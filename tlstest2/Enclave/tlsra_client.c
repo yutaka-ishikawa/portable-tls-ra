@@ -139,18 +139,8 @@ main(int argc, char **argv)
     TLSRA_show_nonce(ssl);
 
     /* main */
-    
-    switch (tflag) {
-    case 0:
-	printf("SSL TEST\n");
-	sslwrite(ssl, buf, size, count); break;
-    case 1:
-	printf("TCP TEST\n");
-	tcpwrite(sock, buf, size, count); break;
-    }
-
-    //myssl_test_encdec(ssl);
-
+    printf("SSL TEST\n");
+    sslwrite(ssl, buf, size, count);
     /* finalizing */
     myssl_shutdown(ctx, ssl);
     SYS_CALL0(ext2, rc, "close", close(sock));

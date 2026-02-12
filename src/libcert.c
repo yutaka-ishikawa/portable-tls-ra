@@ -534,6 +534,29 @@ verify_cert(X509 *x509)
 
     X509_STORE_CTX_set_cert(ctx, x509);
     X509_STORE_add_cert(store, x509);
+#if 0
+    {
+	X509_VERIFY_PARAM *param;
+	struct _X509_VERIFY_PARAM_st { /* copy from crypto/x509/x509_local.h */
+	    char *name;
+	    time_t check_time;    /* Time to use */
+	    uint32_t inh_flags;   /* Inheritance flags */
+	    unsigned long flags;  /* Various verify flags */
+	    int purpose;          /* purpose to check untrusted certificates */
+	    int trust;            /* trust setting to check */
+	    int depth;            /* Verify depth */
+	    int auth_level;       /* Security level for chain verification */
+	    /* more definition below */
+	} *iprm;
+
+	param = X509_STORE_CTX_get0_param(ctx);
+	iprm = (struct _X509_VERIFY_PARAM_st*) param;
+	fprintf(stderr, "%s:X509_STORE_CTX\n", __func__);
+	fprintf(stderr, "\tname=%s\n", iprm->name);
+	fprintf(stderr, "\tflags=0x%lx\n", iprm->flags);
+	fprintf(stderr, "%s: calling X509_verify_cert\n", __func__);
+    }
+#endif
     if (X509_verify_cert(ctx) != 1) {
 	int err = X509_STORE_CTX_get_error(ctx);
 	const char *msg = X509_verify_cert_error_string(err);

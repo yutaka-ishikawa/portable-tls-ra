@@ -3,6 +3,18 @@
 1) If you have not cloned this repository with "--recursive option", then
    git submoudle update --init --recursive
 
+# Intel TLS built
+Intel TLS
+  $ cd ./linux-sgx/SampleCode/SampleAttestedTLS
+  $ cd ./linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux
+  $ make -j  DEBUG=0 NO_THREADS=1 SGX_MODE=HW BUILD_SSL_LIB=1 -U_FORTIFY_SOURCE
+
+  memo
+    In build_openssl.sh, "-D_FORTIFY_SOURCE=2" should be removed if fprintf debug statements are needed.
+  Inside Enclave
+      time() is translated to sgxssl_time()
+
+
 # build
 2)
    $ cd Enclave/external

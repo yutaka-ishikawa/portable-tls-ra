@@ -33,25 +33,35 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
+/* The following three statementes and OCAALL_PRINT() in each function
+ * are added by Y.I */
+#include <stdio.h>
+extern int	oflag;
+#define OCALL_PRINT(oflag)	if (oflag) printf("OCALL %s INVOKED\n", __func__);
+
 /* ocalls to use socket APIs , call socket syscalls */
 
 int u_socket(int domain, int type, int protocol)
 {
+    OCALL_PRINT(oflag);
     return socket(domain, type, protocol);
 }
 
 int u_connect(int sockfd, const struct sockaddr *servaddr, socklen_t addrlen)
 {
+    OCALL_PRINT(oflag);
     return connect(sockfd, servaddr, addrlen);
 }
 
 int u_bind(int fd, const struct sockaddr *addr, socklen_t len)
 {
+    OCALL_PRINT(oflag);
     return bind(fd, addr, len);
 }
 
 int u_listen(int fd, int n)
 {
+    OCALL_PRINT(oflag);
     return listen(fd, n);
 }
 
@@ -64,6 +74,7 @@ int u_accept(
 {
     int ret = -1;
 
+    OCALL_PRINT(oflag);
     if ((ret = accept(fd, addr, &addrlen_in)) != -1) 
     {
         if (addrlen_out) 
@@ -74,11 +85,13 @@ int u_accept(
 
 ssize_t u_send(int sockfd, const void *buf, size_t nbytes, int flags)
 {
+    OCALL_PRINT(oflag);
     return send(sockfd, buf, nbytes, flags);
 }
 
 ssize_t u_recv(int sockfd, void *buf, size_t nbytes, int flags)
 {
+    OCALL_PRINT(oflag);
     return recv(sockfd, buf, nbytes, flags);
 }
 
@@ -90,10 +103,12 @@ int u_setsockopt(
 			socklen_t optlen
 			)
 {
+    OCALL_PRINT(oflag);
     return setsockopt(sockfd, level, optname, optval, optlen);
 }
 
 int u_close(int fd)
 {
+    OCALL_PRINT(oflag);
     return close(fd);
 }
