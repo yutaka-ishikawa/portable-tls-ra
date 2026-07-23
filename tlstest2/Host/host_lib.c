@@ -13,6 +13,7 @@
 #include "host.h"
 
 int	oflag = 0;
+int	dflag = 0;
 #define OCALL_PRINT(oflag)	if (oflag) printf("OCALL %s INVOKED\n", __func__);
 
 void ocall_time(uint64_t *tp)
@@ -224,13 +225,18 @@ makeargs(int argc, char **argv, int **argpos, char **buf, int *buflen)
     int		*targpos;
     int	rc;
 
+#if 0
     while ((rc = getopt(argc, argv, "O")) != -1) {
 	switch(rc) {
 	case 'O':
 	    printf("%s: oflag is set\n", __func__);
 	    oflag = 1; break;
+	case 'd':
+	    printf("%s: dflag is set\n", __func__);
+	    dflag = 1; break;
 	}
     }
+#endif
     for (i = 0; i < argc; i++) {
         len += strlen(argv[i]) + 1;
     }
@@ -242,6 +248,7 @@ makeargs(int argc, char **argv, int **argpos, char **buf, int *buflen)
 	len = strlen(argv[i]);
 	strcpy(&tbuf[pos], argv[i]);
 	pos += len + 1;
+	printf("argv[%d] = %s\n", i, argv[i]);
     }
     return 0;
 }

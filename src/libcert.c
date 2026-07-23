@@ -335,8 +335,12 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 		  "%s: sgx_tls_get_qe_target_info_ocall error\n", __func__);
     if (qrc != SGX_QL_SUCCESS) {
 	fprintf(stderr,
-		"%s: sgx_tls_get_qe_target_info_ocall error\n", __func__);
+		"%s: sgx_tls_get_qe_target_info_ocall error (qrc=0x%x)\n", __func__, qrc);
 	goto err0;
+    } else {
+	/* for debugging purpose */
+	fprintf(stderr,
+		"%s: sgx_tls_get_qe_target_info_ocall SUCCESS\n", __func__);
     }
     TLSRA_CALLmsg(err0, rc,
 		  sgx_create_report(&target_info, &report_data, &app_report),

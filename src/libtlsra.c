@@ -1,4 +1,18 @@
 /*
+ * Server Side:
+ *	on_client_hello hook:
+ *	   get the random number sent by client and create a certificate
+ *		1) make_keypair(&pubkey, &pubsz, &privkey, &privsz);
+ *		2) make_certificate_evidence(...);
+ *		3) make_x509cert(&cert, pkey, quote, qsz, evidence, evsz);
+ * Client Side:
+ *	on_client_cert hook:
+ *	  get the random number sent by server and create a certificate
+ *		1) make_keypair(&pubkey, &pubsz, &privkey, &privsz);
+ *		2) make_certificate_evidence(...)
+ *		3) make_x509cert(&cert, *pkey, quote, qsz, evidence, evsz);
+ */
+/*
  *
  * One possible implementation of an end-end secret data during TLS handshake
  * would be using SSL_export_keying_material_early(). But it is only available
@@ -733,9 +747,8 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
 
     DEBUG {
 	fprintf(stderr, "%s: is called !!!!!!!!!!!!!!!\n", __func__);
-    } else {
-	fprintf(stderr, "TLS-RA mode\n");
     }
+    fprintf(stderr, "TLS-RA mode\n");
     { /* nonce from client */
 	#define O_SIZE	1024
 	unsigned char nonce[O_SIZE];
@@ -744,13 +757,14 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
 	else printf("%s: \tNo nonce has been received\n", __func__);
     }
     *pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
+    printf("%s: *pkey=%p\n", __func__, *pkey);
     rc = make_certificate_evidence(pubkey, pubsz,
 				   &quote, &qsz, &evidence, &evsz);
     if (rc == 0) {
 	printf("Certificate evidence has been created successfuly.\n");
     } else {
-	printf("Creation of certificate evidence failed.\n"
-	       "No evidence is added in the client cert\n");
+	printf("Creation of certificate evidence failed (rc=%d).\n"
+	       "No evidence is added in the client cert\n", rc);
     }
     /*
      * quote and evidence are stored in certificate extension field
@@ -768,6 +782,9 @@ TLSRA_server_init(SSL_CTX *ctx, int flag)
     /*
      * Handling Handshake during client hello message on the server side
      */
+    SSL_CTX_set_verify(ctx,
+		       SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+		       verify);
     SSL_CTX_set_client_hello_cb(ctx, on_client_hello, NULL);
 }
 

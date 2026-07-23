@@ -79,6 +79,31 @@ tcpwrite(int sock, unsigned char *bp, int rsz, int cnt)
 }
 
 
+static int
+getoption(int argc, char **argv)
+{
+    int	i;
+    for (i = 1; i < argc; i++) {
+	printf("argv[%d] = %s\n", i, argv[i]);
+	if (argv[i][0] == '-') {
+	    switch (argv[i][1]) {
+	    case 'd':
+		dflag = 1; break;
+	    case 't': if (i > argc) goto err;
+		tflag = atol(argv[i+1]); i++; printf("tflag is set\n"); break;
+	    case 'v':
+		vflag = 1; printf("vflag is set\n"); break;
+	    }
+	} else {
+	    break;
+	}
+    }
+    return i;
+err:
+    printf("A few arguments\n");
+    return -1;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -109,6 +134,8 @@ main(int argc, char **argv)
 	}
     }
 #endif
+    getoption(argc, argv);
+    printf("Enclave: dflag = %d\n", dflag);
     combuf_init(buf, BUF_SIZE);
     SSL_load_error_strings();
     SSL_library_init();
