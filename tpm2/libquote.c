@@ -212,7 +212,7 @@ make_tpm2_quote(uint8_t *udata, int usize,
     memcpy(t_quote->quote, quoted->attestationData, quoted->size);
     /* marshaling signature */
     TPM2_CALL(err_ext, rc, Tss2_MU_TPMT_SIGNATURE_Marshal(
-		  sig, &t_quote->sign, SIGNSIZE, &off));
+		  sig, t_quote->sign, SIGNSIZE, &off));
     t_quote->ssize = off;
     printf("qsize = %d, ssize = %d, off = %ld\n",
 	   t_quote->qsize, t_quote->ssize, off);
@@ -303,7 +303,7 @@ main(int argc, char **argv)
     uint8_t	nonce[NONCE_SIZE];
     int		nsize = NONCE_SIZE;
     uint8_t	pcrs[] = {0, 1, 2, 7, 10};
-    struct trinity_quote	t_quote;
+    struct tpm2_quote	t_quote;
     int count = 5;
     int	i;
     int rc;

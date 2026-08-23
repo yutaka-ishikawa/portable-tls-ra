@@ -169,6 +169,7 @@ verify(int ok, X509_STORE_CTX *ctx)
 	fprintf(stderr, "But become OK\n");
 	ok = 1;
     }
+    fprintf(stderr, "%s: Server Cert verificaion ok = %d\n", __func__, ok);
     return ok;
 }
 

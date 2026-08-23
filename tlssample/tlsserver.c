@@ -29,17 +29,31 @@ int	Cflag = 0;	/* require Client Certificate */
 /*
  * Client certificate verification
  */
+#define O_SIZE	1024
 static int
 verify(int ok, X509_STORE_CTX *ctx)
 {
+    unsigned char nonce[O_SIZE];
     X509	*x509 = X509_STORE_CTX_get_current_cert(ctx);
+    SSL		*ssl = X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());;
+    size_t	sz;
 
     if (x509 == NULL) {
 	fprintf(stderr, "%s: Client Cert verificaion fails.\n", __func__);
 	return ok;
     }
-    printf("Subject: "); myssl_show_subject_name(x509);
-    printf("Issuer: "); myssl_show_issuer_name(x509);
+    printf("%s Subject: ", __func__); myssl_show_subject_name(x509);
+    printf("%s Issuer: ", __func__); myssl_show_issuer_name(x509);
+    sz = SSL_get_server_random(ssl, nonce, O_SIZE);
+    ok = mysslra_verify(ok, x509, nonce);
+    if (!ok) {
+	int err   = X509_STORE_CTX_get_error(ctx);
+	fprintf(stderr, "Client Cert verificaion fails.\n\t reason = %s\n",
+		X509_verify_cert_error_string(err));
+	// myssl_dump_x509(x509);
+	fprintf(stderr, "But become OK\n");
+	ok = 1;
+    }
     fprintf(stderr, "%s: Client Cert verificaion ok = %d\n", __func__, ok);
     return ok;
 }

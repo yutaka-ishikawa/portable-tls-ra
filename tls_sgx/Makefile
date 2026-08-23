@@ -2,14 +2,16 @@ SGX_MODE = HW
 MY_SEARCHPATH = --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include/ \
 --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux/package/include/
 
-MYCOPTION = -DSGX_ENCLAVE -DOPENSSL_DEV_NO_ATOMICS
+#MYCOPTION = -DSGX_ENCLAVE -DOPENSSL_DEV_NO_ATOMICS
+MYCOPTION = -DSGX_ENCLAVE_WITH_TPM2 -DOPENSSL_DEV_NO_ATOMICS
 #
 # Enclave/XXX is for cbor
 MYINCLUDE = -I/opt/intel/sgxssl/include \
 	-I../src/ \
 	-I/home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include \
 	-I/home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/openssl_source/openssl-3.0.13/include \
-	-I./Enclave/external -I./Enclave/external/src -I./Enclave/external/libcbor/src
+	-I./Enclave/external -I./Enclave/external/src -I./Enclave/external/libcbor/src \
+	-I/usr/include/tss2
 
 #-I/opt/intel/sgxsdk/SampleCode/SampleAttestedTLS/sgx_socket/include \
 #-I/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteVerification/sgxssl/openssl_source/openssl-3.1.6/include/ \
@@ -47,7 +49,8 @@ SGX_MYHOSTLIBRARY_PATH=/home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTL
 SGX_MYSSL_PATH := /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux/package/lib64
 
 # Host libs (DCAP)
-HOST_LDLIBS := -L$(SGX_LIBRARY_PATH) -L$(SGX_MYDCAPLIBRARY_PATH) -L$(SGX_MYHOSTLIBRARY_PATH) -lsgx_urts -lsgx_uae_service -lsgx_quote_ex  -lsgx_usgxssl -lsgx_utls -lsgx_dcap_ql -lsgx_dcap_quoteverify -lcrypto -lpthread -lstdc++
+HOST_LDLIBS := -L$(SGX_LIBRARY_PATH) -L$(SGX_MYDCAPLIBRARY_PATH) -L$(SGX_MYHOSTLIBRARY_PATH) -lsgx_urts -lsgx_uae_service -lsgx_quote_ex  -lsgx_usgxssl -lsgx_utls -lsgx_dcap_ql -lsgx_dcap_quoteverify -lcrypto -lpthread -lstdc++ \
+../tpm2/libquote.o -ltss2-mu -ltss2-esys -ltss2-tctildr -ltss2-rc
 ###HOST_CFLAGS := -O2 -g $(SGX_INCLUDE)
 HOST_CFLAGS := -O2 -g $(SGX_HOSTINCLUDE)
 HOST_LDFLAGS :=
@@ -100,14 +103,14 @@ endif
 
 # ==== Files ====
 EDL := Enclave/Enclave.edl
-TRUSTED_SERVER_SRCS := Enclave/enclave_server.c Enclave/libtlsra.c Enclave/libsock.c Enclave/tlsra_server.c Enclave/Enclave_t.c Enclave/libcert.c Enclave/libintel.c
+TRUSTED_SERVER_SRCS := Enclave/enclave_server.c Enclave/libtlsra.c Enclave/libsock.c Enclave/tlsra_server.c Enclave/Enclave_t.c Enclave/libcert.c Enclave/libintel.c Enclave/libtpm2.c Enclave/libtpm2.c
 TRUSTED_SERVER_OBJS := $(TRUSTED_SERVER_SRCS:.c=.o)
-TRUSTED_CLIENT_SRCS := Enclave/enclave_client.c Enclave/libtlsra.c Enclave/libsock.c Enclave/tlsra_client.c Enclave/Enclave_t.c Enclave/libcert.c Enclave/libintel.c
+TRUSTED_CLIENT_SRCS := Enclave/enclave_client.c Enclave/libtlsra.c Enclave/libsock.c Enclave/tlsra_client.c Enclave/Enclave_t.c Enclave/libcert.c Enclave/libintel.c Enclave/libtpm2.c
 TRUSTED_CLIENT_OBJS := $(TRUSTED_CLIENT_SRCS:.c=.o)
 
-UNTRUSTED_SERVER_SRCS := Host/host_server.c Host/host_lib.c Host/untrusted_sgx_socket.c Enclave/Enclave_u.c
+UNTRUSTED_SERVER_SRCS := Host/host_server.c Host/host_lib.c Host/untrusted_sgx_socket.c Enclave/Enclave_u.c Host/tpm2.c
 UNTRUSTED_SERVER_OBJS := $(UNTRUSTED_SERVER_SRCS:.c=.o)
-UNTRUSTED_CLIENT_SRCS := Host/host_client.c Host/host_lib.c Host/untrusted_sgx_socket.c Enclave/Enclave_u.c
+UNTRUSTED_CLIENT_SRCS := Host/host_client.c Host/host_lib.c Host/untrusted_sgx_socket.c Enclave/Enclave_u.c Host/tpm2.c
 UNTRUSTED_CLIENT_OBJS := $(UNTRUSTED_CLIENT_SRCS:.c=.o)
 
 ENCLAVE_SERVER_SO := enclave_server.so
@@ -145,9 +148,9 @@ Enclave/%.o: Enclave/%.c Enclave/Enclave_t.h
 
 # --- Enclave shared object (unsigned) ---
 $(ENCLAVE_SERVER_SO): $(TRUSTED_SERVER_OBJS)
-	$(CC) -o $@ $^ $(ENCLAVE_TRUSTED_LDFLAGS)
+	$(CC) -o $@ $^ $(ENCLAVE_TRUSTED_LDFLAGS) -Wl,-Map,server.map
 $(ENCLAVE_CLIENT_SO): $(TRUSTED_CLIENT_OBJS)
-	$(CC) -o $@ $^ $(ENCLAVE_TRUSTED_LDFLAGS)
+	$(CC) -o $@ $^ $(ENCLAVE_TRUSTED_LDFLAGS) -Wl,-Map,client.map
 
 # --- Sign enclave ---
 $(ENCLAVE_SERVER_SIGNED): $(ENCLAVE_SERVER_SO) $(ENCLAVE_CONFIG)
