@@ -2,25 +2,17 @@
  * Portable TLS-RA
  */
 extern int	myssl_printerr(const char *str, size_t len, void *u);
-#define TLSRA_LIBCALL0(label, val, lib)		\
-do {				\
-    val = lib;			\
-    if (val == 0) {		\
-	goto label;		\
-    }				\
-} while(0)
 
-#define TLSRA_SYSCALL(label, val, lib, msg)	\
+#define TLSRA_SYSCALL(label, val, lib, msg)		\
 do {				\
     val = lib;			\
-    if (val != 0) {		\
+    if (val < 0) {		\
 	perror(msg);		\
 	goto label;		\
     }				\
 } while(0)
 
-
-#define TLSRA_CALL0msg(label, val, lib, ...)	\
+#define TLSRA_SYSCALLP(label, val, lib, ...)	\
 do {				\
     val = lib;			\
     if (val == 0) {		\
@@ -29,16 +21,67 @@ do {				\
     }				\
 } while(0)
 
-#define TLSRA_CALL0(label, val, lib)		\
+#define TLSRA_SYSCALLmsg(label, val, lib, ...)	\
 do {				\
     val = lib;			\
-    if (val == 0) {		\
-    	ERR_print_errors_cb(myssl_printerr, NULL);	\
+    if (val < 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);	\
 	goto label;		\
     }				\
 } while(0)
 
-#define TLSRA_CALL1(label, val, lib) \
+#define TLSRA_LIBCALL(label, val, lib)	\
+do {				\
+    val = lib;			\
+    if (val < 0) {		\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_LIBCALLmsg(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val < 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);			\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_LIBCALLP(label, val, lib)	\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_LIBCALLPmsg(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);			\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_SGXCALL(label, val, lib)	\
+do {				\
+    val = lib;			\
+    if (val != 0) {		\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_SGXCALLmsg(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val != 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);			\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_SSLCALL(label, val, lib) \
 do {				\
     val = lib;			\
     if (val != 1) {		\
@@ -47,11 +90,90 @@ do {				\
     }				\
 } while(0)
 
-#define TLSRA_CALLN(label, val, lib)		\
+#define TLSRA_SSLCALLmsg(label, val, lib, ...)	\
+do {						\
+    val = lib;			\
+    if (val != 1) {		\
+	fprintf(stderr, ##__VA_ARGS__);		\
+	goto label;		\
+    }				\
+} while(0)
+
+
+#define TLSRA_SSLCALLP(label, val, lib)		\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+    	ERR_print_errors_cb(myssl_printerr, NULL);	\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_SSLCALLPmsg(label, val, lib, ...)	\
+do {						\
+    val = lib;			\
+    if (val == 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);		\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_SSLCALLN0(label, val, lib)		\
 do {				\
     val = lib;			\
     if (val <= 0) {		\
     	ERR_print_errors_cb(myssl_printerr, NULL);	\
+	goto label;		\
+    }				\
+} while(0)
+
+/* return value is boolean: true (1) or false (0) */
+#define TLSRA_CBORCALL(label, val, lib)	\
+do {				\
+    val = lib;			\
+    if (!val) {			\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+#define TLSRA_CBORCALLP(label, val, lib)\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+/*
+ * return value is size (int): larger than zero
+ */
+#define TLSRA_CBORCALLS(label, val, lib)		\
+do {				\
+    val = lib;			\
+    if (val > 0) {			\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+/* this is for cbor_serialize_alloc */
+#define TLSRA_CBORCALL_SALLOC(label, val, lib)		\
+do {				\
+    lib;			\
+    if (val == 0) {			\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+
+#define TLSRA_OCALLmsg(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val != 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);			\
 	goto label;		\
     }				\
 } while(0)
@@ -67,7 +189,8 @@ extern EVP_PKEY *TLSRA_PKEY_read(const char *pkeyfname);
 extern int	TLSRA_PUBKEY_write(const char *path, EVP_PKEY *pkey);
 extern int	TLSRA_PrivateKey_write(const char *path, EVP_PKEY *pkey);
 
-#ifdef SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
+struct timespec;
 #include "Enclave_t.h"
 extern int printf(const char*, ...);
 extern int fprintf(FILE*, const char*, ...);

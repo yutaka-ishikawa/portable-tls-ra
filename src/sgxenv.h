@@ -2,6 +2,9 @@
 typedef uint64_t FILE;
 extern FILE	*stderr;
 
+/* for debug */
+extern int	cert_dflag;
+
 /* C functions */
 extern int	printf(const char *fmt, ...);
 extern int	fprintf(FILE *fp, const char *fmt, ...);
@@ -37,6 +40,3 @@ extern int	__recvfrom_alias();
 #define O_WRONLY	00000001
 #define O_RDWR		00000002
 #define O_CREAT		00000100
-
-#define SGX_DEBUG	if (sgx_dflag)
-#define SGX_VFLAG	if (sgx_vflag)

@@ -70,6 +70,7 @@ verify(int ok, X509_STORE_CTX *ctx)
 {
     X509	*x509 = X509_STORE_CTX_get_current_cert(ctx);
 
+    fprintf(stderr, "%s: verify X509\n", __func__);
     if (x509 == NULL) {
 	fprintf(stderr, "%s: Client Cert verificaion fails.\n", __func__);
 	return ok;
@@ -173,7 +174,7 @@ main(int argc, char **argv)
 #else
     printf("%s:Skipping SSL library init in SGX\n", __func__);
 #endif 
-    TLSRA_CALL0(err3, ctx, SSL_CTX_new(SSLv23_server_method()));
+    TLSRA_SSLCALLP(err3, ctx, SSL_CTX_new(SSLv23_server_method()));
 
     /*
      * TLS RA initialization
@@ -189,7 +190,7 @@ main(int argc, char **argv)
     if (Cflag) {
 	STACK_OF(X509_NAME) *calist;
 	printf("Request Client Certificate !!!\n");
-	TLSRA_CALL0(err4, calist, SSL_load_client_CA_file("CA/my_ca.crt"));
+	TLSRA_SSLCALLP(err4, calist, SSL_load_client_CA_file("CA/my_ca.crt"));
 	SSL_CTX_set_client_CA_list(ctx, calist);	
 	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, verify);
 	SSL_CTX_set_verify_depth(ctx, 10);
@@ -198,7 +199,7 @@ main(int argc, char **argv)
     /*
      * SSL is now created from SSL_CTX.
      */
-    TLSRA_CALL0(err3, ssl, SSL_new(ctx));
+    TLSRA_SSLCALLP(err3, ssl, SSL_new(ctx));
     {
 	int priority = 0;
 	const char *lst = SSL_get_cipher_list(ssl, priority);
@@ -220,9 +221,9 @@ main(int argc, char **argv)
     /* socket accept */
     csock = sock_accept(sock);
     printf("accepted %d\n", csock);
-    TLSRA_CALL1(err, rc, SSL_set_fd(ssl, csock));
+    TLSRA_SSLCALL(err, rc, SSL_set_fd(ssl, csock));
     printf("Going to accept\n");
-    TLSRA_CALL1(err, rc, SSL_accept(ssl));
+    TLSRA_SSLCALL(err, rc, SSL_accept(ssl));
 
     printf("Conntected\n");
     printf("Server Version: %s\n", SSL_get_version(ssl));
@@ -245,10 +246,10 @@ err:
 skip:
     myssl_shutdown(ctx, ssl);
     /* closing comm socket */
-    SYS_CALL0(err2, rc, "close", close(csock));
+    TLSRA_SYSCALL(err2, rc, close(csock), "close");
 err2:
     /* closing socket */
-    SYS_CALL0(err3, rc, "close", close(sock));
+    TLSRA_SYSCALL(err3, rc, close(sock), "close");
     return 0;
 err3:
     printf("SSL_CTX_new() fails\n");

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+struct timespec;
 #include "Enclave_t.h"
 
 extern int main(int, char**);
@@ -17,6 +18,7 @@ FILE	*stderr;
 /*
  * C library compatibility
  */
+#if 0
 int
 __printf_chk(FILE *fp, int flag, const char *fmt, ...)
 {
@@ -36,6 +38,7 @@ __printf_chk(FILE *fp, int flag, const char *fmt, ...)
     free(bp);
     return len;
 }
+#endif
 
 int
 fprintf(FILE *fp, const char *fmt, ...)

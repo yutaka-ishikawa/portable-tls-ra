@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+struct timespec;
 #include "Enclave_t.h"
 
 extern int main(int, char**);

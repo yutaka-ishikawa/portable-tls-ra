@@ -61,12 +61,12 @@ genpkey()
     int	rc;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
-    TLSRA_CALL0(err0, pkey, EVP_PKEY_new());
-    TLSRA_CALL0(err1, ctx, EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL));
-    TLSRA_CALL1(err1, rc, EVP_PKEY_keygen_init(ctx));
-    TLSRA_CALLP(err1, rc, EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, NID_secp384r1));
+    TLSRA_SSLCALLP(err0, pkey, EVP_PKEY_new());
+    TLSRA_SSLCALLP(err1, ctx, EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL));
+    TLSRA_SSLCALL(err1, rc, EVP_PKEY_keygen_init(ctx));
+    TLSRA_SSLCALL(err1, rc, EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, NID_secp384r1));
      /* Generate key */
-    TLSRA_CALL1(err_ret, rc, EVP_PKEY_keygen(ctx, &pkey));
+    TLSRA_TLSCALL(err_ret, rc, EVP_PKEY_keygen(ctx, &pkey));
 err_ret:
     EVP_PKEY_CTX_free(ctx);
     return pkey;
@@ -112,8 +112,8 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
 
     fprintf(stderr, "%s: called oct size(%d)\n", __func__, sz);
 
-    TLSRA_SYSCALL0(err, out_qt , (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE),
-		   "malloc fails\n");
+    TLSRA_LIBCALLP(err, out_qt , (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE),
+		      "malloc fails\n");
     rc = extract_cbor_evidence_and_compare_hash(evi, sz,
 						pem_pubkey,
 						pem_pubkeysz,
@@ -149,14 +149,14 @@ verify_contents(X509 *x509)
     printf("%s: extension count: %d\n", __func__, nent);
 
     /* extract public key from cert */
-    TLSRA_CALL0msg(err, pkey, X509_get_pubkey(x509),
-		   "Cannot get public key from cert");
-    TLSRA_CALL0(err, bio, BIO_new(BIO_s_mem()));
-    TLSRA_CALL1(err, rc, PEM_write_bio_PUBKEY(bio, pkey));
+    TLSRA_SSLCALLPmsg(err, pkey, X509_get_pubkey(x509),
+		      "Cannot get public key from cert");
+    TLSRA_SSLCALLP(err, bio, BIO_new(BIO_s_mem()));
+    TLSRA_SSLCALL(err, rc, PEM_write_bio_PUBKEY(bio, pkey));
     pubsz = BIO_pending(bio);
     printf("%s: pubsz = %d\n", __func__, pubsz);
-    TLSRA_CALL0msg(err, pubkey, malloc(pubsz + 1),
-		   "%s: Cannot allocate memory\n", __func__);
+    TLSRA_LIBCALLPmsg(err, pubkey, malloc(pubsz + 1),
+		      "%s: Cannot allocate memory\n", __func__);
     memset(pubkey, 0, pubsz + 1);
     rc = BIO_read(bio, pubkey, pubsz);
     if (rc != pubsz) {
@@ -194,25 +194,38 @@ make_keypair(uint8_t **pbkey, int *pbsz, uint8_t **prkey, int *prsz)
     BIO		*bio = NULL;
     int	rc;
     *pbkey = NULL; *pbsz = 0; *prkey = NULL; *prsz = 0;
-    TLSRA_CALL0(err0, pkey, genpkey());
+    TLSRA_LIBCALLP(err0, pkey, genpkey());
     /* Convert PEM format */
-    TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
+    TLSRA_SSLCALLP(err0, bio, BIO_new(BIO_s_mem()));
     /**/
-    TLSRA_CALL1(err0, rc, PEM_write_bio_PUBKEY(bio, pkey));
+    TLSRA_SSLCALL(err0, rc, PEM_write_bio_PUBKEY(bio, pkey));
     pubsz = BIO_pending(bio);
     printf("pubsz = %d\n", pubsz);
-    TLSRA_LIBCALL0(err0, pubkey, malloc(pubsz + 1));
+    TLSRA_LIBCALLPmsg(err0, pubkey, malloc(pubsz + 1)
+		      "%s: cannot alocate memory. size(%d)\n", __func__, pubsz+1);
     memset(pubkey, 0, pubsz + 1);
     rc = BIO_read(bio, pubkey, pubsz);
     if (rc != pubsz) {
 	printf("%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
     }
     /* */
-    TLSRA_CALL1(err0, rc,
-		PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL));
+    TLSRA_SSLCALL(err0, rc,
+		  PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL));
     privsz = BIO_pending(bio);
     printf("privsz = %d\n", privsz);
-    TLSRA_LIBCALL0(err0, privkey, malloc(privsz + 1));
+    TLSRA_LIBCALLPmsg(err0, privkey, malloc(privsz + 1),
+		      		      "%s: cannot alocate memory. size(%d)\n", __func__, pubsz+1);
+    memset(pubkey, 0, pubsz + 1);
+    rc = BIO_read(bio, pubkey, pubsz);
+    if (rc != pubsz) {
+	fprintf(stderr, "%s: Cannot read %d byte (actual read %d)\n", __func__, pubsz, rc);
+    }
+    /* */
+    TLSRA_SSLCALL(err0, rc,
+		   PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL));
+    privsz = BIO_pending(bio);
+    TLSRA_LIBCALLPmsg(err0, privkey, malloc(privsz + 1),
+		      "%s: cannot alocate memory. size(%d)\n", __func__, privsz+1);
     memset(privkey, 0, privsz + 1);
     rc = BIO_read(bio, privkey, privsz);
     if (rc != privsz) {
@@ -401,7 +414,7 @@ make_x509cert(X509 **px509, EVP_PKEY *pkey,
 	X509_EXTENSION		*ext = NULL;
 	int	critical = REPORT_CRIT;	/* critical (1) or not (0) */
 	/* extension: SGX quote  */
-	TLSRA_CALL0(err0, obj, OBJ_txt2obj(X509_OID_FOR_QUOTE_STRING, 1));
+	TLSRA_LIBCALLP(err0, obj, OBJ_txt2obj(X509_OID_FOR_QUOTE_STRING, 1));
 	data = ASN1_OCTET_STRING_new();
 	ASN1_OCTET_STRING_set(data, quote, qtsz);
 	X509_EXTENSION_create_by_OBJ(&ext, obj, critical, data);
@@ -411,7 +424,7 @@ make_x509cert(X509 **px509, EVP_PKEY *pkey,
 	/* extension: TCG tagged evidence */
 	data = ASN1_OCTET_STRING_new();
 	ASN1_OCTET_STRING_set(data, evidence, evsz);
-	TLSRA_CALL0(err0, obj, OBJ_txt2obj(TCG_DICE_TAGGED_OID_STR, 1));
+	TLSRA_LIBCALLP(err0, obj, OBJ_txt2obj(TCG_DICE_TAGGED_OID_STR, 1));
 	printf("%s: obj=%p, data=%p\n", __func__, obj, data);
 	/* ext is reused */
 	X509_EXTENSION_create_by_OBJ(&ext, obj, critical, data);

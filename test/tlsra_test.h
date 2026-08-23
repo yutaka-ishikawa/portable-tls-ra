@@ -1,5 +1,5 @@
 //#include <arpa/inet.h>
-#ifdef SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
 #if 0
 extern int printf(const char *fmt, ...);
 extern int fprintf(FILE*, const char *fmt, ...);

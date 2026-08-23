@@ -34,15 +34,21 @@
 #include <openssl/err.h>
 #if 0
 #include <crypto/evp.h>
-#ifndef SGX_ENCLAVE
+#if !(SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2)
 #include <crypto/evp/evp_local.h>
 #endif
 #endif
+
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
+#include "Enclave_t.h"
+#include "sgxenv.h"
+#endif
+
 /*
  * OpenSSL source internal interface
  */
 /* under $(OPENSSL_SRC)/include */
-#ifndef SGX_ENCLAVE
+#if !(SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2)
 #include <internal/ssl_unwrap.h>
 /* under $(OPSNSSL_SRC) */
 #include <ssl/ssl_local.h>
@@ -50,7 +56,6 @@
 #endif
 /*
  */
-#include "sgxenv.h"
 #include "ptlsra.h"
 #include "libcert.h"
 
@@ -118,7 +123,8 @@ int
 myssl_printerr(const char *str, size_t len, void *u)
 {
     char	*buf = NULL;
-    TLSRA_LIBCALL0(err, buf, malloc(len + 1));
+    TLSRA_LIBCALLPmsg(err, buf, malloc(len + 1),
+		      "%s: Cannot allocate memory size(%ld)\n", __func__, len+1);
     strncpy(buf, str, len);
     buf[len] = 0;
     printf("SSLerror: %s\n", str);
@@ -179,7 +185,7 @@ TLSRA_show_nonce(SSL *ssl)
     }
 }
 
-#ifndef SGX_ENCLAVE
+#if !(SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2)
 void
 TLSRA_dump_x509(X509 *x509)
 {
@@ -198,14 +204,14 @@ TLSRA_dump_x509(X509 *x509)
 void
 TLSRA_X509_print(X509 *x509)
 {
-#ifdef SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
     {
 	int	rc;
 	size_t	wsz;
 	BIO	*bio = NULL;
 	BUF_MEM *bptr = NULL;
-	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
-	TLSRA_CALL1(err1, rc, X509_print(bio, x509));
+	TLSRA_SSLCALLP(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_SSLCALL(err1, rc, X509_print(bio, x509));
 	BIO_get_mem_ptr(bio, &bptr);
 	if (bptr && bptr->length > 0) {
 	    ocall_putn(bptr->data, bptr->length, &wsz);
@@ -228,17 +234,19 @@ X509	*
 TLSRA_X509_read(const char *fname)
 {
     X509	*x509 = NULL;
-#if SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2    
     {
 	BIO	*bio = NULL;
 	void	*buf = NULL;
 	size_t	len = 0;
 
-	TLSRA_LIBCALL0(err0, buf, malloc(X509_SIZE));
+	TLSRA_LIBCALLPmsg(err0, buf, malloc(X509_SIZE),
+			  "%s: cannot allocate memory. size=%d\n",
+			  __func__, X509_SIZE);
 	ocall_readfile(fname, buf, X509_SIZE, &len);
 	if (len > 0) {
-	    TLSRA_CALL0(err1, bio, BIO_new_mem_buf(buf, (int) len));
-	    TLSRA_CALL0(err2, x509, PEM_read_bio_X509(bio, NULL, NULL, NULL));
+	    TLSRA_SSLCALLP(err1, bio, BIO_new_mem_buf(buf, (int) len));
+	    TLSRA_SSLCALLP(err2, x509, PEM_read_bio_X509(bio, NULL, NULL, NULL));
 	}
     err2:
 	BIO_free(bio);
@@ -250,12 +258,12 @@ TLSRA_X509_read(const char *fname)
 #else
     {
 	FILE	*fp;
-	if ((fp = fopen(fname, "r")) == NULL) {
+	if ((fp = ocall_fopen(fname, "r")) == NULL) {
 	    fprintf(stderr, "Error: reading CA cert %s\n", fname);
 	    perror("fopen");
 	    return 0;
 	}
-	TLSRA_CALL0(err1, x509, PEM_read_X509(fp, NULL, NULL, NULL));
+	TLSRA_SSLCALLP(err1, x509, PEM_read_X509(fp, NULL, NULL, NULL));
     err1:
 	fclose(fp);
 	return x509;
@@ -269,28 +277,28 @@ TLSRA_X509_read(const char *fname)
 int
 TLSRA_X509_write(const char *fname, X509 *x509)
 {
-#if SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
     {
 	BIO	*bio = NULL;
 	void	*buf = NULL;
 	int	rc = 0;
-	int	sz = 0, wsz;
+	size_t	sz = 0, wsz;
 	int	fd;
 
-	fd = open(fname, O_CREAT|O_RDWR);
+	ocall_open(fname, O_CREAT|O_RDWR, &fd);
 	if (fd < 0) goto err0;
-	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
-	TLSRA_CALL1(err1, rc, PEM_write_bio_X509(bio, x509));
+	TLSRA_SSLCALLP(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_SSLCALL(err1, rc, PEM_write_bio_X509(bio, x509));
 	sz = BIO_pending(bio);
-	TLSRA_CALL0msg(err1, buf, malloc(sz),
-		       "%s: Cannot allocate memory\n", __func__);
+	TLSRA_LIBCALLPmsg(err1, buf, malloc(sz),
+			  "%s: Cannot allocate memory\n", __func__);
 	memset(buf, 0, sz);
 	rc = BIO_read(bio, buf, sz);
 	if (rc != sz) {
 	    fprintf(stderr, "%s: Cannot read BIO\n", __func__);
 	}
-	wsz = write(fd, buf, sz);
-		if (wsz != sz) {
+	ocall_write(fd, buf, sz, &wsz);
+	if (wsz != sz) {
 	    fprintf(stderr, "%s: Cannot write %s file\n", __func__, fname);
 	    rc = 0;
 	}
@@ -304,13 +312,17 @@ TLSRA_X509_write(const char *fname, X509 *x509)
 #else
     {
 	FILE	*fp;
+	int	rc;
 	if ((fp = fopen(fname, "w")) == NULL) {
 	    fprintf(stderr, "Error: cannot create CA cert %s\n", fname);
 	    perror("fopen");
 	    return 0;
 	}
-	TLSRA_CALL0(err1, x509, PEM_write_X509(fp, NULL, NULL, NULL));
+	TLSRA_SSLCALL(err1, rc, PEM_write_X509(fp, x509));
+	fclose(fp);
+	return 0;
     err1:
+	fprintf(stderr, "Error: PEM_write CA cert %s\n", fname);
 	fclose(fp);
 	return 1;
     }
@@ -323,27 +335,27 @@ TLSRA_X509_write(const char *fname, X509 *x509)
 int
 TLSRA_PUBKEY_write(const char *fname, EVP_PKEY *pkey)
 {
-#if SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
     {
 	BIO	*bio = NULL;
 	void	*buf = NULL;
 	int	rc = 0;
-	int	sz = 0, wsz;
+	size_t	sz = 0, wsz;
 	int	fd;
 
-	fd = open(fname, O_CREAT|O_RDWR);
+	ocall_open(fname, O_CREAT|O_RDWR, &fd);
 	if (fd < 0) goto err0;
-	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
-	TLSRA_CALL1(err1, rc, PEM_write_bio_PUBKEY(bio, pkey));
+	TLSRA_SSLCALLP(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_SSLCALL(err1, rc, PEM_write_bio_PUBKEY(bio, pkey));
 	sz = BIO_pending(bio);
-	TLSRA_CALL0msg(err1, buf, malloc(sz),
-		       "%s: Cannot allocate memory\n", __func__);
+	TLSRA_LIBCALLPmsg(err1, buf, malloc(sz),
+			  "%s: Cannot allocate memory size(%ld)\n", __func__, sz);
 	memset(buf, 0, sz);
 	rc = BIO_read(bio, buf, sz);
 	if (rc != sz) {
 	    fprintf(stderr, "%s: Cannot read BIO\n", __func__);
 	}
-	wsz = write(fd, buf, sz);
+	ocall_write(fd, buf, sz, &wsz);
 	if (wsz != sz) {
 	    fprintf(stderr, "%s: Cannot write %s file\n", __func__, fname);
 	    rc = 0;
@@ -358,15 +370,17 @@ TLSRA_PUBKEY_write(const char *fname, EVP_PKEY *pkey)
 #else
     {
 	FILE	*fp;
+	int	rc = 0;
 	if ((fp = fopen(fname, "w")) == NULL) {
 	    fprintf(stderr, "Error: cannot create CA cert %s\n", fname);
 	    perror("fopen");
 	    return 0;
 	}
-	TLSRA_CALL0(err1, rc, PEM_write_PUBKEY(fp, pkey));
+	TLSRA_SSLCALL(err1, rc, PEM_write_PUBKEY(fp, pkey));
+	rc = 1;
     err1:
 	fclose(fp);
-	return 1;
+	return rc;
     }
 #endif
 }
@@ -377,27 +391,27 @@ TLSRA_PUBKEY_write(const char *fname, EVP_PKEY *pkey)
 int
 TLSRA_PrivateKey_write(const char *fname, EVP_PKEY *pkey)
 {
-#if SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
     {
 	BIO	*bio = NULL;
 	void	*buf = NULL;
 	int	rc = 0;
-	int	sz = 0, wsz;
+	size_t	sz = 0, wsz;
 	int	fd;
 
-	fd = open(fname, O_CREAT|O_RDWR);
+	ocall_open(fname, O_CREAT|O_RDWR, &fd);
 	if (fd < 0) goto err0;
-	TLSRA_CALL0(err0, bio, BIO_new(BIO_s_mem()));
-	TLSRA_CALL1(err1, rc, PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL));
+	TLSRA_SSLCALLP(err0, bio, BIO_new(BIO_s_mem()));
+	TLSRA_SSLCALL(err1, rc, PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL));
 	sz = BIO_pending(bio);
-	TLSRA_CALL0msg(err1, buf, malloc(sz),
-		       "%s: Cannot allocate memory\n", __func__);
+	TLSRA_LIBCALLPmsg(err1, buf, malloc(sz),
+			  "%s: Cannot allocate memory size(%ld)\n", __func__, sz);
 	memset(buf, 0, sz);
 	rc = BIO_read(bio, buf, sz);
 	if (rc != sz) {
 	    fprintf(stderr, "%s: Cannot read BIO\n", __func__);
 	}
-	wsz = write(fd, buf, sz);
+	ocall_write(fd, buf, sz, &wsz);
 	if (wsz != sz) {
 	    fprintf(stderr, "%s: Cannot write %s file\n", __func__, fname);
 	    rc = 0;
@@ -412,15 +426,17 @@ TLSRA_PrivateKey_write(const char *fname, EVP_PKEY *pkey)
 #else
     {
 	FILE	*fp;
+	int	rc = 0;
 	if ((fp = fopen(fname, "w")) == NULL) {
 	    fprintf(stderr, "Error: cannot create CA cert %s\n", fname);
 	    perror("fopen");
 	    return 0;
 	}
-	TLSRA_CALL0(err1, x509, PEM_write_PrivateKey(fp, pkey, NULL, NULL, 0, NULL, NULL));
+	TLSRA_SSLCALL(err1, rc, PEM_write_PrivateKey(fp, pkey, NULL, NULL, 0, NULL, NULL));
+	rc = 1;
     err1:
 	fclose(fp);
-	return 1;
+	return rc;
     }
 #endif
 }
@@ -430,17 +446,18 @@ EVP_PKEY *
 TLSRA_PKEY_read(const char *pkeyfname)
 {
     EVP_PKEY	*pkey = NULL;
-#ifdef SGX_ENCLAVE
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
     {
 	BIO	*bio = NULL;
 	void	*buf = NULL;
 	size_t	len = 0;
 
-	TLSRA_LIBCALL0(err0, buf, malloc(PEM_SIZE));
+	TLSRA_LIBCALLPmsg(err0, buf, malloc(PEM_SIZE),
+			  "%s: cannot allocate memory size(%d)\n", __func__, PEM_SIZE);
 	ocall_readfile(pkeyfname, buf, PEM_SIZE, &len);
 	if (len > 0) {
-	    TLSRA_CALL0(err1, bio, BIO_new_mem_buf(buf, (int) len));
-	    TLSRA_CALL0(err2, pkey, PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL));
+	    TLSRA_SSLCALLP(err1, bio, BIO_new_mem_buf(buf, (int) len));
+	    TLSRA_SSLCALLP(err2, pkey, PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL));
 	}
     err2:
 	BIO_free(bio);
@@ -480,10 +497,10 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
     EVP_PKEY	*crtkey = NULL;
     int	rc = 0;
 
-    TLSRA_CALL0(err0, ctx, EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL));
-    TLSRA_CALL1(err0, rc, EVP_PKEY_keygen_init(ctx));
-    TLSRA_CALL1(err0, rc, EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 3072));
-    TLSRA_CALL1(err0, rc, EVP_PKEY_keygen(ctx, &pkey));
+    TLSRA_SSLCALLP(err0, ctx, EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL));
+    TLSRA_SSLCALL(err0, rc, EVP_PKEY_keygen_init(ctx));
+    TLSRA_SSLCALL(err0, rc, EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 3072));
+    TLSRA_SSLCALL(err0, rc, EVP_PKEY_keygen(ctx, &pkey));
 
     *ppkey = pkey;
     x509 = X509_new();
@@ -499,7 +516,7 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
     X509_set_notAfter(x509, X509_gmtime_adj(NULL, YEAR_ONE));
 #endif
     /* Public Key of this Certificate */
-    TLSRA_CALL1(err0, rc, X509_set_pubkey(x509, pkey));
+    TLSRA_SSLCALLP(err0, rc, X509_set_pubkey(x509, pkey));
     {
 	/* Set Subject and Issuer Names, the same name for self-signed */
 	X509_NAME	*subj = X509_get_subject_name(x509);
@@ -522,7 +539,7 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
 	    cert = TLSRA_X509_read(ca_crt);
 	    /* Getting cert subject extension */
 	    issue = X509_get_subject_name(cert);
-	    TLSRA_CALL1(err0, rc, X509_set_issuer_name(x509, issue));
+	    TLSRA_SSLCALL(err0, rc, X509_set_issuer_name(x509, issue));
 	    /* reading certificate private key */
 	    crtkey = TLSRA_PKEY_read(ca_pkey);
 	    if (!crtkey) {
@@ -542,7 +559,7 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
 		X509_add_ext(x509, ext, -1);
 		X509_EXTENSION_free(ext);
 	    }
-	    TLSRA_CALL1(err0, rc, X509_set_issuer_name(x509, subj));
+	    TLSRA_SSLCALL(err0, rc, X509_set_issuer_name(x509, subj));
 	    crtkey = pkey;
 	    printf("%s: Self-signed certificate\n", __func__);
 	}
@@ -557,7 +574,8 @@ mysslra_x509(X509 **px509, EVP_PKEY **ppkey,
 	int	critical = REPORT_CRIT; 	/* critical (1) or not (0) */
 	//const unsigned char reportdata[] = "Report Dummy Report Dummy\n";
 	/**/
-	TLSRA_CALL0(err0, oid, OBJ_txt2obj("1.2.840.113741.1337.2", 1));
+	TLSRA_LIBCALLPmsg(err0, oid, OBJ_txt2obj("1.2.840.113741.1337.2", 1),
+			  "%s: Cannot allocate memory\n", __func__);
 	val = ASN1_OCTET_STRING_new();
 	ASN1_OCTET_STRING_set(val, report, replen);
 	//ASN1_OCTET_STRING_set(val, reportdata, strlen((char*)reportdata));
@@ -585,30 +603,11 @@ err0:
 static int
 on_client_hello(SSL *ssl, int *al, void *arg)
 {
-    unsigned char	report[512];
     int	len;
     int	rc;
     // SSL_set_msg_callback(con, msg_callback);
     printf("Certificate initializaion rflag=%d\n", rflag);
-    {
-	const unsigned char *nonce = NULL;
-	/* nonce from client, it is not needed to free nounce */
-	len = SSL_client_hello_get0_random(ssl, &nonce);
-	if (len > 0) {
-	    dump("\tnonce = ", nonce, len);
-	} else {
-	    printf("\t%s: No nonce has been received\n", __func__);
-	}
-	/* making report */
-	//len = _TLSRA_makereport(report, 512, nonce);
-
-	memset(report, 0, sizeof(report));
-	memcpy(report, nonce, len > 512 ? 512 : len);
-    }
-    {
-    }
-    //TLSRA_CALL1(err3, rc, SSL_use_certificate_file(ssl, "public.key", SSL_FILETYPE_PEM));
-    //TLSRA_CALL1(err3, rc, SSL_use_PrivateKey_file(ssl, "private.key", SSL_FILETYPE_PEM));
+    /* nonce from client, it is not needed to free nounce */
     if (rflag) {
 	X509		*cert = NULL;
 	uint8_t		*pubkey = NULL;
@@ -618,12 +617,24 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	uint8_t		*quote = NULL;
 	uint32_t	qsz = 0;
 	EVP_PKEY	*pkey;
+	const unsigned char 	*nonce = NULL;
+	int		len;
 	uint8_t		*evidence;
 	size_t		evsz;
 	
 	printf("%s: TLS-RA mode\n", __func__);
+	/* nonce length might be 32B */
+	len = SSL_client_hello_get0_random(ssl, &nonce);
+	if (len > 0) {
+	    printf("%s: noncesize(%d)\t", __func__, len);
+	    dump("\tnonce = ", nonce, len);
+	} else {
+	    printf("\t%s: No nonce has been received\n", __func__);
+	}
 	pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
+	printf("%s: LINE=%d\n", __func__, __LINE__);
 	rc = make_certificate_evidence(pubkey, pubsz,
+				       (uint8_t*) nonce, len,
 				       &quote, &qsz, &evidence, &evsz);
 	if (rc == 0) {
 	    printf("Certificate evidence has been created successfuly.\n");
@@ -635,8 +646,8 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	 * quote and evidence are stored in certificate extension field
 	 */
 	make_x509cert(&cert, pkey, quote, qsz, evidence, evsz);
-	TLSRA_CALL1(err3, rc, SSL_use_certificate(ssl, cert));
-	TLSRA_CALL1(err3, rc, SSL_use_PrivateKey(ssl, pkey));
+	TLSRA_SSLCALL(err3, rc, SSL_use_certificate(ssl, cert));
+	TLSRA_SSLCALL(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     } else {
 	/* cert and pkey files are assumed PEM format, not ASN1:
 	 * e.g., openssl genrsa -out ./server.key 2048
@@ -645,10 +656,10 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	X509	*cert = NULL;
 	EVP_PKEY *pkey = NULL;
 	cert = TLSRA_X509_read("server.crt");
-	TLSRA_CALL1(err3, rc, SSL_use_certificate(ssl, cert));
+	TLSRA_SSLCALL(err3, rc, SSL_use_certificate(ssl, cert));
 	printf("%s: DEBUG3\n", __func__);
 	pkey = TLSRA_PKEY_read("server.key");
-	TLSRA_CALL1(err3, rc, SSL_use_PrivateKey(ssl, pkey));
+	TLSRA_SSLCALL(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     }
     printf("%s: SSL_CLIENT_HELLO_SUCCESS\n", __func__);
     /* success */
@@ -734,6 +745,9 @@ verify(int ok, X509_STORE_CTX *ctx)
 static int
 on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
 {
+#define O_SIZE	1024
+    unsigned char nonce[SSL3_RANDOM_SIZE];
+    int		nsize;
     X509	*cert = NULL;
     uint8_t	*pubkey = NULL;
     uint8_t	*privkey = NULL;
@@ -743,22 +757,19 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
     uint32_t	qsz = 0;
     uint8_t	*evidence;
     size_t	evsz;
+    size_t	sz;
     int	rc;
 
     DEBUG {
 	fprintf(stderr, "%s: is called !!!!!!!!!!!!!!!\n", __func__);
     }
     fprintf(stderr, "TLS-RA mode\n");
-    { /* nonce from client */
-	#define O_SIZE	1024
-	unsigned char nonce[O_SIZE];
-	size_t	sz = SSL_get_server_random(ssl, nonce, O_SIZE);
-	if (sz > 0) dump("\tnonce = ", nonce, sz);
-	else printf("%s: \tNo nonce has been received\n", __func__);
-    }
+    nsize = SSL_get_server_random(ssl, nonce, SSL3_RANDOM_SIZE);
+    dump("\tnonce = ", nonce, sz);
     *pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
     printf("%s: *pkey=%p\n", __func__, *pkey);
     rc = make_certificate_evidence(pubkey, pubsz,
+				   nonce, nsize,
 				   &quote, &qsz, &evidence, &evsz);
     if (rc == 0) {
 	printf("Certificate evidence has been created successfuly.\n");
@@ -791,7 +802,7 @@ TLSRA_server_init(SSL_CTX *ctx, int flag)
 int
 TLSRA_client_init(SSL_CTX *ctx, int flag)
 {
-    int	rc;
+    int	rc = 1; /* success */
     /*
      * Handling Handshake during client hello message
      */
@@ -800,9 +811,9 @@ TLSRA_client_init(SSL_CTX *ctx, int flag)
     SSL_CTX_set_verify_depth(ctx, 10);
     /* Require Server certificate and verification*/
     /* CA cert (PEM) */
-    //TLSRA_CALL0(err, rc, SSL_CTX_load_verify_locations(ctx, "./CA/my_ca.crt", NULL));
-    //TLSRA_CALL0(err, rc, SSL_CTX_load_verify_dir(ctx, "./CA"));
+    //TLSRA_SSLCALL(err, rc, SSL_CTX_load_verify_locations(ctx, "./CA/my_ca.crt", NULL));
+    //TLSRA_SSLCALL(err, rc, SSL_CTX_load_verify_dir(ctx, "./CA"));
     rflag = flag;
-err:
+//err:
     return rc;
 }

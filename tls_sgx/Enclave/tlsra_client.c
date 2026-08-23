@@ -47,7 +47,7 @@ sslwrite(SSL *ssl, unsigned char *bp, int wsiz, int cnt)
 	VERBOSE {
 	    printf("%s: sending data size(%d)\n", __func__,  wsiz);
 	}
-	TLSRA_CALLN(err, rc, SSL_write(ssl, bp, wsiz));
+	TLSRA_SSLCALLN0(err, rc, SSL_write(ssl, bp, wsiz));
 	VERBOSE {
 	    printf("%s: sent size(%d)\n", __func__,  rc);
 	}
@@ -139,7 +139,7 @@ main(int argc, char **argv)
     combuf_init(buf, BUF_SIZE);
     SSL_load_error_strings();
     SSL_library_init();
-    TLSRA_CALL0(err, ctx, SSL_CTX_new(SSLv23_client_method()));
+    TLSRA_SSLCALLP(err, ctx, SSL_CTX_new(SSLv23_client_method()));
     /*
      * Handling Handshake during client hello message
      */
@@ -148,7 +148,7 @@ main(int argc, char **argv)
     /*
      * Now SSL is now created from SSL_CTX.
      */
-    TLSRA_CALL0(err, ssl, SSL_new(ctx));
+    TLSRA_SSLCALLP(err, ssl, SSL_new(ctx));
 
     printf("ip=0x%x port=%d\n", ip, port);
     sock = sock_connect(ip, port);
@@ -157,9 +157,9 @@ main(int argc, char **argv)
 	return -1;
     }
 
-    TLSRA_CALL0(err, rc, SSL_set_fd(ssl, sock));
+    TLSRA_SSLCALL(err, rc, SSL_set_fd(ssl, sock));
 
-    TLSRA_CALL1(err, rc, SSL_connect(ssl));
+    TLSRA_SSLCALL(err, rc, SSL_connect(ssl));
     printf("Conntect to %s\n", ipaddr(ip));
 
     /* showing nonces of both client and server */
@@ -170,7 +170,7 @@ main(int argc, char **argv)
     sslwrite(ssl, buf, size, count);
     /* finalizing */
     myssl_shutdown(ctx, ssl);
-    SYS_CALL0(ext2, rc, "close", close(sock));
+    TLSRA_SYSCALL(ext2, rc, close(sock), "close");
 ext2:
     return 0;
 err:
