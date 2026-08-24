@@ -16,7 +16,11 @@ struct tpm2_quote {
     uint8_t	sign[SIGNSIZE]; /* marashal data */
 };
 
-extern int
-make_tpm2_quote(uint8_t *nonce, int nsize,
-		int alg, uint8_t *pcrs, int count, uint32_t handle,
-		struct tpm2_quote *t_quote);
+extern int	make_tpm2_quote(uint8_t *nonce, int nsize,
+				int alg, uint8_t *pcrs, int count, uint32_t handle,
+				struct tpm2_quote *t_quote);
+extern void	show_tpm2quote_info(const char *msg, TPMS_QUOTE_INFO *qinfo);
+extern int	verify_tpm2_quote(const uint8_t *s_quoted, int sq_size,
+				  const TPMT_SIGNATURE *sig, EVP_PKEY *ak_pubkey);
+extern int	comp_pcr_selection(const TPML_PCR_SELECTION *a,
+				   const TPML_PCR_SELECTION *b);

@@ -86,13 +86,14 @@ err0:
  * system dependent verification table
  */
 extern int verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
-			       uint8_t *pem_pubkey, size_t pem_pubkeysz);
+			       uint8_t *pem_pubkey, size_t pem_pubkeysz, uint8_t*);
 extern int verify_SGX_quote(const ASN1_OCTET_STRING *oct,
-			    uint8_t *pem_pubkey, size_t pem_pubkeysz);
+			    uint8_t *pem_pubkey, size_t pem_pubkeysz, uint8_t*);
 struct verify_tab {
     const char	*oid_txt;
     int		(*verify_func)(const ASN1_OCTET_STRING *oct,
-			       uint8_t *pem_pubkey, size_t pem_pubkeysz);
+			       uint8_t *pem_pubkey, size_t pem_pubkeysz,
+			       uint8_t *nonce);
 } verify_tab[] = {
     { TCG_DICE_TAGGED_OID_STR, verify_SGX_evidence },
     { X509_OID_FOR_QUOTE_STRING, verify_SGX_quote },
@@ -100,7 +101,7 @@ struct verify_tab {
 };
 
 int
-verify_contents(X509 *x509)
+verify_contents(X509 *x509, uint8_t *nonce)
 {
     int	rc = 0;
     uint8_t	*pubkey = NULL;
@@ -138,7 +139,7 @@ verify_contents(X509 *x509)
 	if (loc > 0) { /* found */
 	    X509_EXTENSION		*ext = X509_get_ext(x509, loc);
 	    const ASN1_OCTET_STRING	*oct= X509_EXTENSION_get_data(ext);
-	    rc = verify_tab[i].verify_func(oct, pubkey, pubsz);
+	    rc = verify_tab[i].verify_func(oct, pubkey, pubsz, nonce);
 	    break;
 	}
 	ASN1_OBJECT_free(target);
@@ -281,9 +282,10 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 		  "%s: sgx_tls_get_quote_ocall error\n", __func__);
     /*
      * cbor evidence: quote and claims are stored as bytestring in array
-     *		      this array is tagged with value 60000
+     *		      this array is tagged with value 60000, Intel Quote only
      */
-    rc = make_cbor_sgx_evidence(*quote, *qsz, claims, csz, evidence, evsz);
+    rc = make_cbor_sgx_evidence(*quote, *qsz, claims, csz, evidence, evsz,
+				IANA_CBOR_TAG_INTEL_TEE_QUOTE);
     if (rc < 0) {
 	fprintf(stderr, "%s: error during evidence creation\n", __func__);
 	return -1;
@@ -328,7 +330,7 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
     fprintf(stderr, "%s: enter LINE=%d\n", __func__, __LINE__);
     make_cbor_tpm2_claims_from_enclave(pubkey, pubksz, nonce, nsize,
 				       &claims, &csz);
-    fprintf(stderr, "%s: csz = %ld LINE=%d\n", __func__, csz, __LINE__);
+    fprintf(stderr, "%s: YIIIII CLAIMS csz = %ld LINE=%d\n", __func__, csz, __LINE__);
     SHA256(claims, csz, (unsigned char *) &report_data);
     /*
      * claims are used for user report
@@ -339,7 +341,6 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 		   sgx_tls_get_qe_target_info_ocall(&qrc, &target_info,
 						    sizeof(sgx_target_info_t)),
 		   "%s: sgx_tls_get_qe_target_info_ocall error\n", __func__);
-    fprintf(stderr, "%s: qrc LINE=%d\n", __func__, qrc, __LINE__);
     if (qrc != SGX_QL_SUCCESS) {
 	fprintf(stderr,
 		"%s: sgx_tls_get_qe_target_info_ocall error (qrc=0x%x)\n", __func__, qrc);
@@ -360,6 +361,9 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 		"%s: sgx_tls_get_quote_size_ocall\n", __func__);
 	goto err0;
     }
+    /*
+     * *quote is type sgx_quote3_t.
+     */
     TLSRA_LIBCALLPmsg(err0, *quote, malloc(*qsz), "%s: malloc fails\n", __func__);
     TLSRA_OCALLmsg(err0, rc,
 		   sgx_tls_get_quote_ocall(&qrc, &app_report,
@@ -367,9 +371,10 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 		   "%s: sgx_tls_get_quote_ocall error\n", __func__);
     /*
      * cbor evidence: quote and claims are stored as bytestring in array
-     *		      this array is tagged with value 60000
+     *		      this array is tagged with value 60004, Intel Quote with TPM2
      */
-    rc = make_cbor_sgx_evidence(*quote, *qsz, claims, csz, evidence, evsz);
+    rc = make_cbor_sgx_evidence(*quote, *qsz, claims, csz, evidence, evsz,
+				LOCAL_CBOR_TAG_INTEL_TEE_TPM2_QUOTE);
     if (rc < 0) {
 	fprintf(stderr, "%s: error during evidence creation\n", __func__);
 	return -1;
@@ -577,7 +582,7 @@ err0:
  * nor X509_STORE_set_flags() calls
  */
 int
-verify_cert(X509 *x509)
+verify_cert(X509 *x509, uint8_t *nonce)
 {
     X509_STORE_CTX	*ctx = NULL;
     X509_STORE		*store = NULL;
@@ -623,7 +628,7 @@ verify_cert(X509 *x509)
     X509_STORE_CTX_free(ctx);
     X509_STORE_free(store);
     /* Checking quote: system dependent */
-    rc = verify_contents(x509);
+    rc = verify_contents(x509, nonce);
 err:
     return rc;
 }

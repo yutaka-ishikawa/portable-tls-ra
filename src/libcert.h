@@ -51,7 +51,8 @@ extern int	make_cbor_sgx_claims(uint8_t *pubkey, int pubk_sz,
 				     uint8_t **claims, size_t *cl_sz);
 extern int	make_cbor_sgx_evidence(uint8_t *quote, size_t quote_sz,
 				       uint8_t *claim, size_t claim_sz,
-				       uint8_t **o_evd, size_t *o_evd_sz);
+				       uint8_t **o_evd, size_t *o_evd_sz,
+				       int ctype);
 extern int	make_cbor_tpm2_claims(uint8_t *pubkey, int pubk_sz,
 				      uint8_t *nonce, int nsize,
 				      uint8_t **claims, size_t *cl_sz);
@@ -68,7 +69,7 @@ extern int	make_certificate_evidence(uint8_t *pubkey, int pubksz,
 extern int	make_x509cert(X509 **px509, EVP_PKEY *pkey,
 			      uint8_t *quote, int qtsz,
 			      uint8_t *evidence, int evsz);
-extern int	verify_cert(X509 *x509);
+extern int	verify_cert(X509 *x509, uint8_t *nonce);
 
 
 #define CERT_DEBUG	if (cert_dflag)

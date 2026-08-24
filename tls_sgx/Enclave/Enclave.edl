@@ -48,9 +48,13 @@ trusted {
   	void ocall_sock_connect(uint32_t ip, uint16_t port, [out] int *psock);
 	void ocall_sock_serveropen(uint32_t ip, uint16_t port, [out] int *psock);
 	void ocall_sock_accept(int sock, [out] int *rc);
-	void ocall_make_tpm2_quote_via_daemon([in] uint8_t *nonce, int nsize,
+	void ocall_make_tpm2_quote_via_daemon([in, size=32] uint8_t *nonce, int nsize,
 				     	      size_t qbsize,
 					      [out, size=qbsize] uint8_t *tpm2_qbuf,
 					      [out] size_t *sz);
+	void ocall_verify_tpm2_quote_via_daemon([in, size=sz] uint8_t *sertpm2,
+						int sz,
+					        [in, size=32] uint8_t *nonce,
+						[out] int *rc);
     };
 };

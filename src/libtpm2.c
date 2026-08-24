@@ -199,11 +199,11 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
 		   add_cbor_map(c_claims, "nonce", nonce, nsize));
     fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     /*
-     * 3rd entry: "tpm2quot"
+     * 3rd entry: "tpm2-quote"
      */
     fprintf(stderr, "%s: OCALL tpm2_qbuf=%p tpm2_qbsz=%ld LINE=%d\n", __func__, tpm2_qbuf, tpm2_qbsz, __LINE__);
     ocall_make_tpm2_quote_via_daemon(nonce, nsize, sizeof(tpm2_qbuf), tpm2_qbuf, &tpm2_qbsz);
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
+    fprintf(stderr, "%s: RETURN from OCALL tpm2_qbuf=%p tpm2_qbsz=%ld LINE=%d\n", __func__, tpm2_qbuf, tpm2_qbsz, __LINE__);
     if (tpm2_qbsz <= 0) {
 	goto err2;
     }

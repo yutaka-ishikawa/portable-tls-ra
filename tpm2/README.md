@@ -35,3 +35,9 @@ struct TPMT_SIGNATURE {
     TPMI_ALG_SIG_SCHEME sigAlg; /* selector of the algorithm used to construct the signature */
     TPMU_SIGNATURE signature;   /* This shall be the actual signature information. */
 };
+
+typedef struct TPMS_QUOTE_INFO TPMS_QUOTE_INFO;
+struct TPMS_QUOTE_INFO {
+    TPML_PCR_SELECTION pcrSelect; /* information on algID PCR selected and digest */
+    TPM2B_DIGEST pcrDigest;       /* digest of the selected PCR using the hash of the signing key */
+};

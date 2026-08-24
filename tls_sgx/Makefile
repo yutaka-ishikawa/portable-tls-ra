@@ -50,7 +50,7 @@ SGX_MYSSL_PATH := /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx
 
 # Host libs (DCAP)
 HOST_LDLIBS := -L$(SGX_LIBRARY_PATH) -L$(SGX_MYDCAPLIBRARY_PATH) -L$(SGX_MYHOSTLIBRARY_PATH) -lsgx_urts -lsgx_uae_service -lsgx_quote_ex  -lsgx_usgxssl -lsgx_utls -lsgx_dcap_ql -lsgx_dcap_quoteverify -lcrypto -lpthread -lstdc++ \
-../tpm2/libquote.o -ltss2-mu -ltss2-esys -ltss2-tctildr -ltss2-rc
+../tpm2/libquote.o ../tpm2/libmeasurement.o -ltss2-mu -ltss2-esys -ltss2-tctildr -ltss2-rc
 ###HOST_CFLAGS := -O2 -g $(SGX_INCLUDE)
 HOST_CFLAGS := -O2 -g $(SGX_HOSTINCLUDE)
 HOST_LDFLAGS :=
@@ -205,10 +205,12 @@ certgg:
 #
 run-tlsra_server:
 #	./host -p 10101 -V -v -r
+	../tpm2/measure -o ./measure_server.bin ./host_server
 	./host_server -V -v -r
 trace-run-tlsra_server:
 	strace -f -o ./trace-server.txt ./host_server -V -v -r -O
 run-tlsra_client:
+	../tpm2/measure -o ./measure_client.bin ./host_client
 	./host_client -d
 trace-run-tlsra_client:
 	strace -f -o ./trace-client.txt ./host_client -d -O

@@ -67,7 +67,20 @@ struct timespec;
 #include "Enclave_t.h"
 #include "ptlsra.h"
 
+#define MAXSIZE_SER_TPM2_QUOTE	1000
+
 #define SGX_TLS_SAFE_FREE(x) {if(x) {free(x); x=NULL;}}
+#define CBOR_CHECK_KEYPARE(label, ret, errcode, value) \
+{							\
+    if (!value || !cbor_isa_bytestring(value)		\
+	|| !cbor_bytestring_is_definite(value)		\
+	|| cbor_bytestring_length(value) == 0) {	\
+	ret = errcode; goto out;			\
+    }							\
+} while (0)
+
+
+
 
 static void
 dump(const char *msg, const unsigned char *bf, int size)
@@ -327,7 +340,7 @@ make_cbor_pkhash_entry(const uint8_t *p_pub_key, size_t key_size,
  */
 int
 make_cbor_sgx_claims(uint8_t *pubkey, int pubksz,
-		 uint8_t **claims, size_t *csz)
+		     uint8_t **claims, size_t *csz)
 {
     cbor_item_t		*cbor_claims = NULL;
     cbor_item_t		*cbor_pubkey_hash_key = NULL;
@@ -382,8 +395,8 @@ err0:
  */
 int
 make_cbor_sgx_evidence(uint8_t *quote, size_t quotesz,
-		   uint8_t *claim, size_t claimsz,
-		   uint8_t **out_evidence, size_t *evidence_size)
+		       uint8_t *claim, size_t claimsz,
+		       uint8_t **out_evidence, size_t *evidence_size, int ctype)
 {
     cbor_item_t	*evidence = NULL;
     cbor_item_t	*tagged_evidence = NULL;
@@ -416,8 +429,8 @@ make_cbor_sgx_evidence(uint8_t *quote, size_t quotesz,
 	cbor_decref(&cbor_quote);
     }
     /**/
-    TLSRA_CBORCALLP(err4, tagged_evidence,
-		    cbor_new_tag(IANA_CBOR_TAG_INTEL_TEE_QUOTE));
+    fprintf(stderr, "%s: Using CBOR TAG = %d\n", __func__, ctype);
+    TLSRA_CBORCALLP(err4, tagged_evidence,  cbor_new_tag(ctype));
     cbor_tag_set_item(tagged_evidence, evidence);
 
     /* tagged evidence is serialized */
@@ -436,8 +449,12 @@ err0:
 
 /* a common function to compare hash from target_buf with quote */
 /* possible in_buf could be public_key for legacy or claims buf for interoperable ra-tls*/
-sgx_status_t sgx_tls_compare_quote_hash(uint8_t *p_quote,
-            uint8_t* in_buf, size_t in_buf_len)
+/*
+ * 
+ */
+sgx_status_t
+sgx_tls_compare_quote_hash(uint8_t *p_quote,
+			   uint8_t* in_buf, size_t in_buf_len)
 {
     size_t report_data_size = 0;
     uint32_t quote_type = 0;
@@ -505,10 +522,9 @@ done:
 }
 
 static sgx_status_t
-compare_cert_pubkey_against_cbor_claim_hash(
-    const uint8_t* pem_pub_key,
-    size_t pem_pub_key_len,
-    cbor_item_t* cbor_hash_entry)
+compare_cert_pubkey_against_cbor_claim_hash(const uint8_t* pem_pub_key,
+					    size_t pem_pub_key_len,
+					    cbor_item_t* cbor_hash_entry)
 {
     uint8_t pk_der[PUB_KEY_MAX_SIZE] = {0};
     size_t pk_der_size = 0;
@@ -620,13 +636,20 @@ out:
     return ret;
 }
 
-sgx_status_t extract_cbor_evidence_and_compare_hash(
-            const uint8_t* cbor_evidence_buf,
-            size_t evidence_buf_size,
-            uint8_t* pem_pub_key,
-            size_t pem_pub_key_len,
-            uint8_t* out_quote,
-            uint32_t* out_quote_size)
+/*
+ * extracted quote and claims with integrity check
+ */
+sgx_status_t
+extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
+				       size_t evidence_buf_size,
+				       uint8_t *pem_pub_key,
+				       size_t   pem_pub_key_len,
+				       uint8_t  *out_quote,
+				       uint32_t *out_quote_size,
+				       uint8_t  *out_sertpm2,
+				       uint32_t	*sersz,
+				       uint8_t  *out_nonce,
+				       int      *ctype)
 {
     /* for description of evidence format, see ttls.c:generate_cbor_evidence() */
     cbor_item_t* cbor_tagged_evidence = NULL;
@@ -644,6 +667,7 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
     size_t quote_size = 0;
     int	qtype = 0;
 
+    *sersz = 0;
     if (evidence_buf_size == 0) return SGX_ERROR_UNEXPECTED;
 
     struct cbor_load_result cbor_result;
@@ -664,6 +688,7 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
         ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
         goto out;
     }
+    *ctype = cbor_tag_value(cbor_tagged_evidence);
     switch(cbor_tag_value(cbor_tagged_evidence)) {
     case TCG_DICE_TAGGED_EVIDENCE_TEE_QUOTE_CBOR_TAG:
 	qtype = TCG_DICE_TAGGED_EVIDENCE_TEE_QUOTE_CBOR_TAG;
@@ -766,35 +791,50 @@ sgx_status_t extract_cbor_evidence_and_compare_hash(
             goto out;
         }
 	fprintf(stderr, "%s: cborKEY=%s LINE=%d\n", __func__, (char*)cbor_string_handle(claims_pairs[i].key), __LINE__);	
-        if (strncmp((char*)cbor_string_handle(claims_pairs[i].key), "pubkey-hash",
-                    cbor_string_length(claims_pairs[i].key)) == 0) {
+        if (!strncmp((char*)cbor_string_handle(claims_pairs[i].key), "pubkey-hash",
+                    cbor_string_length(claims_pairs[i].key))) {
             /* claim { "pubkey-hash" : serialized CBOR array hash-entry (as CBOR bstr) } */
 	    fprintf(stderr, "%s: cbor KEY=\"pubkey-hash\"\n", __func__);
-            if (!claims_pairs[i].value || !cbor_isa_bytestring(claims_pairs[i].value)
-                    || !cbor_bytestring_is_definite(claims_pairs[i].value)
-                    || cbor_bytestring_length(claims_pairs[i].value) == 0) {
-                ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
-                goto out;
-            }
-
-            uint8_t* hash_entry_buf = cbor_bytestring_handle(claims_pairs[i].value);
+	    CBOR_CHECK_KEYPARE(out, ret, SGX_ERROR_TLS_X509_INVALID_EXTENSION,
+			       claims_pairs[i].value);
+            uint8_t *hash_entry_buf = cbor_bytestring_handle(claims_pairs[i].value);
             size_t hash_entry_buf_size = cbor_bytestring_length(claims_pairs[i].value);
-
             cbor_hash_entry = cbor_load(hash_entry_buf, hash_entry_buf_size, &cbor_result);
             if (cbor_result.error.code != CBOR_ERR_NONE) {
                 ret = (cbor_result.error.code == CBOR_ERR_MEMERROR) ? SGX_ERROR_OUT_OF_EPC
                       : SGX_ERROR_TLS_X509_INVALID_EXTENSION;
                 goto out;
             }
-
-	    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
             ret = compare_cert_pubkey_against_cbor_claim_hash(pem_pub_key, pem_pub_key_len, cbor_hash_entry);
 	    fprintf(stderr, "%s: LINE=%d ret=%d\n", __func__, __LINE__, ret);
-            if (ret != SGX_SUCCESS)
-            {
+            if (ret != SGX_SUCCESS) {
                 goto out;
             }
-        }
+        } else if (!strncmp((char*)cbor_string_handle(claims_pairs[i].key),
+			   "tpm2-quote", cbor_string_length(claims_pairs[i].key))) {
+	    /* tpm2-quote */
+	    uint8_t	*tpm2q_buf = cbor_bytestring_handle(claims_pairs[i].value);
+	    size_t	bufsz = cbor_bytestring_length(claims_pairs[i].value);
+	    fprintf(stderr, "%s: YI!!!!!! serialized tpm2-quote size = %ld\n", __func__, bufsz);
+	    if (bufsz <= MAXSIZE_SER_TPM2_QUOTE) {
+		*sersz = bufsz;
+		memcpy(out_sertpm2, tpm2q_buf, bufsz);
+	    } else {
+		fprintf(stderr, "%s: received tpm2_quote buffer size is %ld\n", __func__, bufsz);
+		*sersz = 0;
+	    }
+	} else if (!strncmp((char*)cbor_string_handle(claims_pairs[i].key),
+			   "nonce",
+			    cbor_string_length(claims_pairs[i].key))) {
+	    uint8_t *nonce_buf = cbor_bytestring_handle(claims_pairs[i].value);
+	    size_t  buf_sz = cbor_bytestring_length(claims_pairs[i].value);
+	    fprintf(stderr, "%s: YI!!!!!! nonce size = %ld\n", __func__, buf_sz);
+	    if (buf_sz != 32) {
+		fprintf(stderr, "%s: nonce size must be 32 byte, but %ld\n", __func__, buf_sz);
+	    } else {
+		memcpy(out_nonce, nonce_buf, 32);
+	    }
+	}
     }
     fprintf(stderr, "%s: YI!!! SUCEESS LINE=%d\n", __func__, __LINE__);    
     memcpy(out_quote, quote, quote_size);
@@ -818,25 +858,22 @@ out:
     return ret;
 }
 
-
-extern sgx_status_t	extract_cbor_evidence_and_compare_hash(
-				const uint8_t* cbor_evidence_buf,
-				size_t evidence_buf_size,
-				uint8_t* pem_pub_key,
-				size_t pem_pub_key_len,
-				uint8_t* out_quote,
-				uint32_t* out_quote_size);
 extern sgx_status_t sgx_read_rand(uint8_t *buf, size_t size);
 
+/*
+ * oid X509_OID_FOR_QUOTE_STRING: This is for an Intel old specification.
+ * No implementation here.
+ */
 int
 verify_SGX_quote(const ASN1_OCTET_STRING *oct,
-		 uint8_t *pem_pubkey, size_t pem_pubkeysz)
+		 uint8_t *pem_pubkey, size_t pem_pubkeysz, uint8_t *nonce)
 {
     int			sz  = ASN1_STRING_length(oct);
     const uint8_t	*quote = ASN1_STRING_get0_data(oct);
 
     /* quote is extracted */
     fprintf(stderr, "%s: called size(%d)\n", __func__, sz);
+    fprintf(stderr, "%s: X509_OID_FOR_QUOTE_STRING is not implemented\n", __func__);
     return VERIFIED_QUOTE;
 }
 
@@ -845,15 +882,19 @@ verify_SGX_quote(const ASN1_OCTET_STRING *oct,
  *		tag: IANA_CBOR_TAG_INTEL_TEE_QUOTE
  *   extract_cbor_evidence_and_compare_hash(...)
  */
-
 int
 verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
-		    uint8_t *pem_pubkey, size_t pem_pubkeysz)
+		    uint8_t *pem_pubkey, size_t pem_pubkeysz,
+		    uint8_t *nonce)
 {
     const uint8_t	*evi = ASN1_STRING_get0_data(oct);
     int			sz = ASN1_STRING_length(oct);
     uint8_t		*out_qt;
     uint32_t		out_qtsz;
+    uint8_t		out_sertpm2[MAXSIZE_SER_TPM2_QUOTE];
+    uint32_t		sersz = sizeof(out_sertpm2);
+    uint8_t		out_nonce[32]; // fixme: must be use CONSTANT MACRO
+    int			ctype;
     int			rc = 0;
     time_t		curtime;
     quote3_error_t	qrc;
@@ -870,11 +911,21 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
     ocall_time((uint64_t*) &curtime);
     TLSRA_LIBCALLPmsg(err0, out_qt , (uint8_t*)malloc(RAW_QUOTE_MAX_SIZE),
 		      "malloc fails\n");
+    /*
+     * This cbor array contains two entries: Intel quote and claims.
+     * The claims cbor map contains
+     *	one entry: "pubkey-hash" for Intel Quote
+     *	three entries:
+     *		"pubkey-hash", "tpm2-quote", and "nonce" for Intel Quote with TPM2
+     * out_qt is a quote whose size is out_tqsz
+     */
     TLSRA_SGXCALLmsg(err0, rc,
 		     extract_cbor_evidence_and_compare_hash(evi, sz,
-							 pem_pubkey,
-							 pem_pubkeysz,
-							 out_qt, &out_qtsz),
+							    pem_pubkey,
+							    pem_pubkeysz,
+							    out_qt, &out_qtsz,
+							    out_sertpm2, &sersz,
+							    out_nonce, &ctype),
 		  "%s: evidence does not have the correct pubkey\n", __func__);
     /*
      * allocating  supplemental data for sgx_tls_verify_quote_ocall
@@ -916,12 +967,29 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
 		" See dcap_source/QuoteVerification/QvE/Include/sgx_qve_header.h\n",
 		qv_result);
     }
+    /*
+     * Checking nonce
+     */
+    if (memcmp(nonce, out_nonce, 32) != 0) {
+	fprintf(stderr, "%s: Challenge-Response fails!!\n", __func__);
+	goto err0;
+    }
+    fprintf(stderr, "%s: CBOR type = %d\n", __func__, ctype);
+    if (ctype == LOCAL_CBOR_TAG_INTEL_TEE_TPM2_QUOTE) {
+	/* Verifying tpm2_quote */
+	int	orc;
+	fprintf(stderr, "%s: YIIIIIII calling ocall_verify_tpm2_quote_via_daemon\n", __func__);
+	rc = ocall_verify_tpm2_quote_via_daemon(out_sertpm2, sersz, nonce, &orc);
+	fprintf(stderr, "%s: YIIIIIII return rc = %d orc = %d\n", __func__, rc, orc);
+	if (rc != 0 || orc < 0) goto err0;
+    }
     CERT_DEBUG {
 	fprintf(stderr, "%s: SUCESS\n", __func__);
     }
+    if (sup) free(sup);
     return VERIFIED_EVIDENCE;
 err0:
-    printf("%s: FAIL\n", __func__);
+    fprintf(stderr, "%s: FAIL\n", __func__);
     if (sup) free(sup);
     return 0;
 }

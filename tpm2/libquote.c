@@ -11,6 +11,12 @@
 #include <tss2/tss2_rc.h>
 #include <tss2/tss2_tctildr.h>
 
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <openssl/ecdsa.h>
+#include <openssl/bn.h>
+#include <openssl/err.h>
+
 #include "libquote.h"
 
 #define TPM2_CALL(lbl, rc, command)	\
@@ -22,6 +28,44 @@ do {					\
     }					\
 } while(0)
 
+#define CRYPT_CALL(lbl, rc, command)	\
+do {					\
+    rc = command;			\
+    if (rc == 0) {			\
+	fprintf(stderr, "%s: error %s\n", __func__, #command);	\
+        goto lbl;			\
+    }					\
+} while(0)
+
+#define SSL_CALL(lbl, rc, command)	\
+do {					\
+    rc = command;			\
+    if (rc != 1) {			\
+        ERR_print_errors_fp(stderr);	\
+        goto lbl;			\
+    }					\
+} while(0)
+
+#define SSL_CALLP(lbl, rc, command)	\
+do {					\
+    rc = command;			\
+    if (rc == 0) {			\
+	ERR_print_errors_fp(stderr);	\
+        goto lbl;			\
+    }					\
+} while(0)
+
+
+static void
+dump(const char *msg, const unsigned char *bf, int size)
+{
+    int	i;
+    fprintf(stderr, "%s", msg);
+    for (i = 0; i < size; i++) {
+	fprintf(stderr, "%02x:", bf[i]);
+    }
+    fprintf(stderr, "\n");
+}
 
 static void
 tss_error(const char *cmd, TSS2_RC rc)
@@ -29,6 +73,49 @@ tss_error(const char *cmd, TSS2_RC rc)
     const char	*message = Tss2_RC_Decode(rc);
     fprintf(stderr, "%s failed: 0x%x (%s)\n",  cmd, rc,
 	    (message == NULL) ? "unknown TSS2 error" : message);
+}
+
+void
+show_tpm2quote_info(const char *msg, TPMS_QUOTE_INFO *qinfo)
+{
+    TPML_PCR_SELECTION	*pcrSelect = &qinfo->pcrSelect;
+    TPM2B_DIGEST	*pcrDigest = &qinfo->pcrDigest;
+    int	i;
+
+    fprintf(stderr, "*********** TPM2 Quote (%s) ************\n", msg);
+    fprintf(stderr, "\tTPML_PCR_SECELCTION: count(%d)\n", pcrSelect->count);
+    for (i = 0; i < pcrSelect->count; i++) {
+	TPMS_PCR_SELECTION	*sel = &pcrSelect->pcrSelections[i];
+	fprintf(stderr, "\thash = 0x%04x\n", sel->hash);
+	fprintf(stderr, "\tsizeofSelect = %u\n", sel->sizeofSelect);
+	fprintf(stderr, "\tSelected PCRs:");
+	for (UINT32 pcr = 0;  pcr < sel->sizeofSelect * 8;  pcr++) {
+	    if (sel->pcrSelect[pcr / 8] & (1 << (pcr % 8))) {
+		fprintf(stderr, " %u", pcr);
+	    }
+	}
+	fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "\tDigest(size = %d): ", pcrDigest->size);
+    for (i = 0; i < pcrDigest->size; i++) {
+	fprintf(stderr, "%02x:", pcrDigest->buffer[i]);
+    }
+    fprintf(stderr, "\n");
+}
+
+int
+comp_pcr_selection(const TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b)
+{
+    int	i;
+    if (a->count != b->count)  return -1;
+    for (i = 0; i < a->count; i++) {
+        const TPMS_PCR_SELECTION *sa = &a->pcrSelections[i];
+        const TPMS_PCR_SELECTION *sb = &b->pcrSelections[i];
+        if (sa->hash != sb->hash)  return -1;
+        if (sa->sizeofSelect != sb->sizeofSelect) return -1;
+        if (memcmp(sa->pcrSelect, sb->pcrSelect, sa->sizeofSelect) != 0) return -1;
+    }
+    return 0;
 }
 
 int
@@ -167,6 +254,7 @@ make_tpm2_quote(uint8_t *udata, int usize,
     }
     qdata.size = usize;
     memcpy(qdata.buffer, udata, usize);
+    dump("@@@@@@@@@@@@@@@@@@ TPM qdata: ", qdata.buffer, usize);
     /* Initializing TSS2 context */
     TPM2_CALL(ext, rc, Tss2_TctiLdr_Initialize(NULL, &tctx));
     /* Initializing ESYS context */
@@ -206,6 +294,7 @@ make_tpm2_quote(uint8_t *udata, int usize,
 	goto err_ext;
     }
     /* setup trinity_quote structure (out) */
+    fprintf(stderr, "%s: YIIIIIIIIIIIIII Maked QUOTE size = %d\n", __func__, quoted->size);
     t_quote->qtype = QUOTE_TPM2;
     t_quote->qsize = quoted->size;
     /* copy quote */
@@ -241,59 +330,135 @@ err:
 }
 
 
-#if 0
-int
-verify_tpm2_quote_sign(uint8_t *quote_sign, size_t size, TPMS_ATTEST *tpm_atst,
-		       EVP_PKEY *ak_pubkey)
+static int
+tpm_ecdsa_to_der(const TPMS_SIGNATURE_ECDSA *tpm_sig,
+                 unsigned char *der,  int *der_len)
 {
-    TPMT_SIGNATURE	sig;
-    size_t		off = 0;
-    //TPMI_ALG_HASH	hash_alg;
-    int	rc = -1;
+    ECDSA_SIG	*sig = NULL;
+    BIGNUM	*r = NULL;
+    BIGNUM	*s = NULL;
+    unsigned char *tmp;
+    int	trc, rc = -1;
+    int	len;
 
-    /* unmarashaling quote */
-    TPM2_CALL(err_ext, rc,
-	      Tss2_MU_TPMS_ATTEST_Unmarshal(quote_sign, size, &off, tpm_atst));
-    if (tpm_atst->magic != TPM2_GENERATED_VALUE
-	|| tpm_atst->type != TPM2_ST_ATTEST_QUOTE) {
-	fprintf(stderr, "%s: quote is not TPM2 quote nor attested quote\n",
-		__func__);
-	goto err_ext;
+    CRYPT_CALL(err, r,
+	       BN_bin2bn(tpm_sig->signatureR.buffer, tpm_sig->signatureR.size, NULL));
+    CRYPT_CALL(err, s,
+	       BN_bin2bn(tpm_sig->signatureS.buffer, tpm_sig->signatureS.size, NULL));
+    CRYPT_CALL(err, sig, ECDSA_SIG_new());
+    SSL_CALL(err, trc, ECDSA_SIG_set0(sig, r, s));
+    /* query required size */
+    len = i2d_ECDSA_SIG(sig, NULL);
+    if (len <= 0) {
+        goto err;
     }
-    TPM2_CALL(err_ext, rc,
-	      Tss2_MU_TPMT_SIGNATURE_Unmarshal(quote_sign, size, &off,
-					       &sig));
-    /* verify sign */
-    switch (tpm_sig.sigAlg) {
-    case TPM2_ALG_RSASSA: /* RSA PKCS#1 v1.5 signature */
-	hash_alg = sig.signature.rsassa.hash;
-        sig_data = sig.signature.rsassa.sig.buffer;
-        sig_size = sig.signature.rsassa.sig.size;
-        break;
-    case TPM2_ALG_RSAPSS: /* RSA PSS */
-        hash_alg = sig.signature.rsapss.hash;
-        sig_data = sig.signature.rsapss.sig.buffer;
-        sig_size = sig.signature.rsapss.sig.size;
-	break;
-    default:
-	fprintf(stderr, "%s: only support RSA PKCS#1 and PSS\n", __func__);
-	goto err_ext;
+    if (len > *der_len) {
+	fprintf(stderr, "%s: ecdsa_der requires %d byte, but %d\n", __func__, len, *der_len);
+	goto err;
     }
-#if 0
-    switch (hash_alg) {
-    case TPM2_ALG_SHA1: md = EVP_sha1(); break;
-    case TPM2_ALG_SHA256: md = EVP_sha256(); break;
-    case TPM2_ALG_SHA384: md = EVP_sha384(); break;
-    case TPM2_ALG_SHA512: md = EVP_sha512(); break;
-    default:
-	fprintf(stderr, "%s: unsupported hash alogorithm (0x%x)\n",
-		__func__, hash_alg);
-	goto err_ext;
+    tmp = der;
+    if (i2d_ECDSA_SIG(sig, &tmp) != len) {
+        goto err;
     }
-#endif
+    *der_len = len;
+    rc = 0;
+err:
+    if (r) BN_free(r);
+    if (s) BN_free(s);
+    if (sig) ECDSA_SIG_free(sig);
     return rc;
 }
-#endif
+
+/*
+ * verify_tpm2_quote returns
+ *	0 : Verify Success
+ *	-1: Verify Failed
+ */
+int
+verify_tpm2_quote(const uint8_t *s_quoted, int sq_size,
+		  const TPMT_SIGNATURE *sig, EVP_PKEY *ak_pubkey)
+{
+    TPMI_ALG_HASH	hash_alg;
+    const EVP_MD	*md;
+    EVP_MD_CTX		*mdctx = NULL;
+    EVP_PKEY_CTX	*pkey_ctx = NULL;
+    const unsigned char *sig_data = NULL;
+    size_t sig_size = 0;
+    unsigned char	ecdsa_der[1024];
+    int			ecdsa_der_size = sizeof(ecdsa_der);
+    TSS2_RC trc;
+    int ret, rc = -1;
+
+    switch (sig->sigAlg) {
+    case TPM2_ALG_RSASSA:
+        hash_alg = sig->signature.rsassa.hash;
+        sig_data = sig->signature.rsassa.sig.buffer;
+        sig_size = sig->signature.rsassa.sig.size;
+        break;
+    case TPM2_ALG_RSAPSS:
+        hash_alg = sig->signature.rsapss.hash;
+        sig_data = sig->signature.rsapss.sig.buffer;
+        sig_size = sig->signature.rsapss.sig.size;
+        break;
+    case TPM2_ALG_ECDSA:
+        hash_alg = sig->signature.ecdsa.hash;
+        if (tpm_ecdsa_to_der(&sig->signature.ecdsa, ecdsa_der,
+			     &ecdsa_der_size) != 0) {
+            fprintf(stderr, "ECDSA signature conversion failed\n");
+            return -1;
+        }
+        sig_data = ecdsa_der;
+        sig_size = ecdsa_der_size;
+        break;
+    default:
+        fprintf(stderr, "%s: Unsupported signature algorithm: 0x%04x\n",
+		__func__, sig->sigAlg);
+        return -1;
+    }
+    switch (hash_alg) {
+    case TPM2_ALG_SHA1:   md = EVP_sha1(); break;
+    case TPM2_ALG_SHA256: md = EVP_sha256(); break;
+    case TPM2_ALG_SHA384: md = EVP_sha384(); break;
+    case TPM2_ALG_SHA512: md = EVP_sha512();break;
+    default:
+	fprintf(stderr, "%s: Unsupported hash algorithm: 0x%04x\n",
+		__func__, hash_alg);
+	goto err;
+    }
+
+    SSL_CALLP(err, mdctx, EVP_MD_CTX_new());
+    SSL_CALL(err, ret, EVP_DigestVerifyInit(mdctx, &pkey_ctx,
+					    md, NULL, ak_pubkey));
+    if (sig->sigAlg == TPM2_ALG_RSASSA) {
+        if (EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PADDING) <= 0) {
+            ERR_print_errors_fp(stderr);
+            goto err;
+        }
+    } else if (sig->sigAlg == TPM2_ALG_RSAPSS) {
+        if (EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING) <= 0) {
+            ERR_print_errors_fp(stderr); goto err;
+        }
+        if (EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_ctx, md) <= 0) {
+            ERR_print_errors_fp(stderr); goto err;
+        }
+    }
+    if (EVP_DigestVerifyUpdate(mdctx, s_quoted, sq_size) != 1) {
+        ERR_print_errors_fp(stderr); goto err;
+    }
+    trc = EVP_DigestVerifyFinal(mdctx, sig_data, sig_size);
+    if (trc == 1) {
+        fprintf(stderr, "TPM2 Quote signature: VALID\n");
+	rc = 0;
+    } else if (trc == 0) {
+        fprintf(stderr, "TPM2 Quote signature: INVALID\n");
+    } else {
+        fprintf(stderr, "OpenSSL signature verification error\n");
+        ERR_print_errors_fp(stderr);
+    }
+err:
+    EVP_MD_CTX_free(mdctx);
+    return rc;
+}
 
 #ifdef LIBQUOTE_TEST
 #define NONCE_SIZE	32

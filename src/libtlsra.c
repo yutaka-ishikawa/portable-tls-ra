@@ -718,6 +718,8 @@ verify(int ok, X509_STORE_CTX *ctx)
 {
     X509	*x509;
     SSL		*ssl;
+    uint8_t	nonce[32];
+    size_t	sz;
 
     DEBUG {
 	fprintf(stderr, "%s: Server certificate verification\n", __func__);
@@ -728,7 +730,8 @@ verify(int ok, X509_STORE_CTX *ctx)
 	fprintf(stderr, "%s: Server Cert verificaion fails.\n", __func__);
 	return ok;
     }
-    if (verify_cert(x509) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
+    sz = SSL_get_server_random(ssl, nonce, 32);
+    if (verify_cert(x509, nonce) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
 	fprintf(stderr, "Verification success.\n");
 	ok = 1;
     } else {
