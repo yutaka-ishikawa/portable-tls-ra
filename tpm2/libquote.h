@@ -16,6 +16,8 @@ struct tpm2_quote {
     uint8_t	sign[SIGNSIZE]; /* marashal data */
 };
 
+extern int	hash_extend_sha256(const uint8_t *old_hash, const uint8_t *digest,
+				   uint8_t *new_hash);
 extern int	make_tpm2_quote(uint8_t *nonce, int nsize,
 				int alg, uint8_t *pcrs, int count, uint32_t handle,
 				struct tpm2_quote *t_quote);

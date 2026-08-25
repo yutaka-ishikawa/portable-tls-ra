@@ -207,11 +207,17 @@ run-tlsra_server:
 #	./host -p 10101 -V -v -r
 	../tpm2/measure -o ./measure_server.bin ./host_server
 	./host_server -V -v -r
+run-tlsra_server-D:
+	../tpm2/measure -o ./measure_server.bin ./host_server
+	./host_server -V -v -r
 trace-run-tlsra_server:
 	strace -f -o ./trace-server.txt ./host_server -V -v -r -O
 run-tlsra_client:
 	../tpm2/measure -o ./measure_client.bin ./host_client
 	./host_client -d
+run-tlsra_client-D:
+	../tpm2/measure -o ./measure_client.bin ./host_client
+	./host_client -d -D
 trace-run-tlsra_client:
 	strace -f -o ./trace-client.txt ./host_client -d -O
 #

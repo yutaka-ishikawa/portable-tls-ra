@@ -82,32 +82,6 @@ err:
 }
 
 
-static int
-hash_extend_sha256(const uint8_t *old_hash, const uint8_t *digest,
-                   uint8_t *new_hash)
-{
-    EVP_MD_CTX	*ctx;
-    int	len = 0;
-    int rc = -1;
-
-    TLSRA_SSLCALLP(err0, ctx, EVP_MD_CTX_new());
-    TLSRA_SSLCALL(err1, rc, EVP_DigestInit_ex(ctx, EVP_sha256(), NULL));
-    /* Hash(old_hash || digest) */
-    TLSRA_SSLCALL(err1, rc, EVP_DigestUpdate(ctx, old_hash, SHA256_DIGEST_LENGTH));
-    TLSRA_SSLCALLP(err1, rc, EVP_DigestUpdate(ctx, digest, SHA256_DIGEST_LENGTH));
-    TLSRA_SSLCALL(err1, rc, EVP_DigestFinal_ex(ctx, new_hash, &len));
-    if (len == SHA256_DIGEST_LENGTH) {
-	rc = 0;
-    } else {
-	fprintf(stderr, "%s: size is not %d(SHA256_DIGEST_LENGTH)\n", __func__, SHA256_DIGEST_LENGTH);
-    }
-err1:
-    EVP_MD_CTX_free(ctx);
-err0:
-    return rc;
-}
-
-
 /*
  * return value is true (1) or false(0)
  */
@@ -137,6 +111,15 @@ err0:
 void
 ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
 				 uint8_t *tpm2_serial, size_t *sz)
+{
+    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", __func__);
+    fprintf(stderr, "%s: NOT YET IMPLEMENTED\n", __func__);
+    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", __func__);
+}
+
+void
+ocall_make_tpm2_quote(uint8_t *nonce, int nsize, size_t qbsize,
+		      uint8_t *tpm2_serial, size_t *sz)
 {
     uint8_t	*tpm2_qbuf = NULL;
     size_t	tpm2_qbsz = 0;
@@ -217,8 +200,7 @@ err0:
 }
 
 void
-ocall_verify_tpm2_quote_via_daemon(uint8_t *sertpm2, int size,
-				   uint8_t *nonce, int *orc)
+ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
 {
     uint8_t	*s_quote = NULL;
     size_t	s_siz = 0;

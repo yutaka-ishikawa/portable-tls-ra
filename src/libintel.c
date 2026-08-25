@@ -978,8 +978,8 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
     if (ctype == LOCAL_CBOR_TAG_INTEL_TEE_TPM2_QUOTE) {
 	/* Verifying tpm2_quote */
 	int	orc;
-	fprintf(stderr, "%s: YIIIIIII calling ocall_verify_tpm2_quote_via_daemon\n", __func__);
-	rc = ocall_verify_tpm2_quote_via_daemon(out_sertpm2, sersz, nonce, &orc);
+	fprintf(stderr, "%s: YIIIIIII calling ocall_verify_tpm2_quote\n", __func__);
+	rc = ocall_verify_tpm2_quote(out_sertpm2, sersz, nonce, &orc);
 	fprintf(stderr, "%s: YIIIIIII return rc = %d orc = %d\n", __func__, rc, orc);
 	if (rc != 0 || orc < 0) goto err0;
     }

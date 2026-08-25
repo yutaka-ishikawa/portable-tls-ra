@@ -21,6 +21,7 @@ unsigned char	buf2[BUF_SIZE];
 int	dflag = 0;
 int	tflag = 0;
 int	vflag = 0;
+int	atflag = 0;	/* using Attester Daemon */
 
 union unip {
     uint8_t	addr[4];
@@ -89,6 +90,8 @@ getoption(int argc, char **argv)
 	    switch (argv[i][1]) {
 	    case 'd':
 		dflag = 1; break;
+	    case 'D': /* using Attester Daemon */
+		atflag = 1; break;
 	    case 't': if (i > argc) goto err;
 		tflag = atol(argv[i+1]); i++; printf("tflag is set\n"); break;
 	    case 'v':

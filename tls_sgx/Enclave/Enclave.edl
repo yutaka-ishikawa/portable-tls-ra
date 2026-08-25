@@ -52,9 +52,13 @@ trusted {
 				     	      size_t qbsize,
 					      [out, size=qbsize] uint8_t *tpm2_qbuf,
 					      [out] size_t *sz);
-	void ocall_verify_tpm2_quote_via_daemon([in, size=sz] uint8_t *sertpm2,
-						int sz,
-					        [in, size=32] uint8_t *nonce,
-						[out] int *rc);
+	void ocall_make_tpm2_quote([in, size=32] uint8_t *nonce, int nsize,
+				   size_t qbsize,
+				   [out, size=qbsize] uint8_t *tpm2_qbuf,
+				   [out] size_t *sz);
+	void ocall_verify_tpm2_quote([in, size=sz] uint8_t *sertpm2,
+				   int sz,
+				   [in, size=32] uint8_t *nonce,
+				   [out] int *rc);
     };
 };

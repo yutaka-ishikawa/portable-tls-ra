@@ -16,6 +16,7 @@
 #include <openssl/ecdsa.h>
 #include <openssl/bn.h>
 #include <openssl/err.h>
+#include <openssl/sha.h>
 
 #include "libquote.h"
 
@@ -27,6 +28,7 @@ do {					\
         goto lbl;			\
     }					\
 } while(0)
+
 
 #define CRYPT_CALL(lbl, rc, command)	\
 do {					\
@@ -101,6 +103,31 @@ show_tpm2quote_info(const char *msg, TPMS_QUOTE_INFO *qinfo)
 	fprintf(stderr, "%02x:", pcrDigest->buffer[i]);
     }
     fprintf(stderr, "\n");
+}
+
+int
+hash_extend_sha256(const uint8_t *old_hash, const uint8_t *digest,
+                   uint8_t *new_hash)
+{
+    EVP_MD_CTX	*ctx;
+    uint32_t	len = 0;
+    int rc = -1;
+
+    SSL_CALLP(err0, ctx, EVP_MD_CTX_new());
+    SSL_CALL(err1, rc, EVP_DigestInit_ex(ctx, EVP_sha256(), NULL));
+    /* Hash(old_hash || digest) */
+    SSL_CALL(err1, rc, EVP_DigestUpdate(ctx, old_hash, SHA256_DIGEST_LENGTH));
+    SSL_CALLP(err1, rc, EVP_DigestUpdate(ctx, digest, SHA256_DIGEST_LENGTH));
+    SSL_CALL(err1, rc, EVP_DigestFinal_ex(ctx, new_hash, &len));
+    if (len == SHA256_DIGEST_LENGTH) {
+	rc = 0;
+    } else {
+	fprintf(stderr, "%s: size is not %d(SHA256_DIGEST_LENGTH)\n", __func__, SHA256_DIGEST_LENGTH);
+    }
+err1:
+    EVP_MD_CTX_free(ctx);
+err0:
+    return rc;
 }
 
 int

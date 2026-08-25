@@ -1,0 +1,329 @@
+/*
+ *
+ *
+ */
+#include <cbor.h>
+#include <tss2/tss2_tpm2_types.h>
+#include <tss2/tss2_esys.h>
+#include <tss2/tss2_mu.h>
+#include <tss2/tss2_rc.h>
+#include <tss2/tss2_tctildr.h>
+#include <openssl/evp.h>
+
+#include "libsock.h"
+#include "libquote.h"
+#include "libmeasurement.h"
+#include "tpmdaemon.h"
+#include <getopt.h>
+
+/* return value is boolean: true (1) or false (0) */
+#define CBORCALL(label, val, lib)	\
+do {				\
+    val = lib;			\
+    if (!val) {			\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+#define CBORCALLP(label, val, lib)\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+/*
+ * return value is size (int): larger than zero
+ */
+#define CBORCALLS(label, val, lib)		\
+do {				\
+    val = lib;			\
+    if (val > 0) {			\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+/* this is for cbor_serialize_alloc */
+#define CBORCALL_SALLOC(label, val, lib)		\
+do {				\
+    lib;			\
+    if (val == 0) {			\
+	fprintf(stderr, "%s: %s error\n", __func__, #lib);	\
+	goto label;		\
+    }				\
+} while(0)
+
+#define LIBCALLmsg(label, val, lib, ...) \
+do {				\
+    val = lib;			\
+    if (val < 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);	\
+	goto label;		\
+    }				\
+} while(0)
+
+#define SYSCALL(label, val, lib, msg)	\
+do {				\
+    val = lib;			\
+    if (val < 0) {		\
+	perror(msg);		\
+	goto label;		\
+    }				\
+} while(0)
+
+#define SYSCALLP(label, val, lib, ...)	\
+do {				\
+    val = lib;			\
+    if (val == 0) {		\
+	fprintf(stderr, ##__VA_ARGS__);	\
+	goto label;		\
+    }				\
+} while(0)
+
+
+int	dflag = 0;
+
+static void
+usage(const char *cmd)
+{
+    fprintf(stderr, "%s: <path> [-d]\n", cmd);
+    exit(-1);
+}
+
+static void
+dump(const char *msg, const unsigned char *bf, int size)
+{
+    int	i;
+    fprintf(stderr, "%s", msg);
+    for (i = 0; i < size; i++) {
+	fprintf(stderr, "%02x:", bf[i]);
+    }
+    fprintf(stderr, "\n");
+}
+
+/*
+ * return value is true (1) or false(0)
+ */
+static int
+add_cbor_map(cbor_item_t *map, const char *key, const uint8_t *val, size_t sz)
+{
+    cbor_item_t	*ckey = NULL;
+    cbor_item_t	*cval = NULL;
+    struct cbor_pair	mapent;
+    int	rc = 0; /* false */
+
+    CBORCALLP(err0, ckey, cbor_build_string(key));
+    CBORCALLP(err1, cval, cbor_build_bytestring(val, sz));
+    mapent.key = ckey;
+    mapent.value = cval;
+    /* return value is boolean */
+    CBORCALL(err2, rc, cbor_map_add(map, mapent));
+    rc = 1; /* true */
+err2:
+    cbor_decref(&cval);
+err1:
+    cbor_decref(&ckey);
+err0:
+    return rc;
+}
+
+/*
+ *
+ */
+int
+make_tpm2_quote_with_pid(uint8_t *nonce, int nsize, size_t qbsize,
+			 uint8_t *tpm2_serial, size_t *sz,
+			 uint8_t *apphash, int appsz, int pid)
+{
+    uint8_t	*tpm2_qbuf = NULL;
+    size_t	tpm2_qbsz = 0;
+    uint8_t	newhash[32];
+    int	alg = TPM2_ALG_SHA256;
+    uint8_t	pcrs[] = {0, 1, 2, 7, 10};
+    int	count = 5;
+    int	rc = -1;
+    struct tpm2_quote	t_quote;
+    cbor_item_t		*c_tpm2_quote = NULL;
+
+    /* app-hash || nonce */
+    rc = hash_extend_sha256(apphash, nonce, newhash);
+    dump("@@@@@@@ apphash: ", apphash, 32);
+    dump("@@@@@@@ nonce: ", nonce, 32);
+    dump("@@@@@@@ TPM2 EXTEND(app-hash || nonce): ", newhash, 32);
+    rc = make_tpm2_quote(newhash, nsize, alg, pcrs, count, 0x81018001, &t_quote);
+    if (rc < 0) {
+	fprintf(stderr, "%s: make_tpm2_quote error\n", __func__);
+	goto err0;
+    }
+    {
+	size_t	off = 0;
+	TPMS_ATTEST	tpm_atst;
+	TPMS_QUOTE_INFO *qinfo;
+	Tss2_MU_TPMS_ATTEST_Unmarshal(t_quote.quote, t_quote.qsize,
+				      &off, &tpm_atst);
+	if (tpm_atst.type != TPM2_ST_ATTEST_QUOTE) {
+	    fprintf(stderr, "%s: TPM2 Quote is expected, but type = 0x%x\n",
+		    __func__, tpm_atst.type);
+	    goto err0;
+	}
+	qinfo = &tpm_atst.attested.quote;
+	show_tpm2quote_info("My", qinfo);
+    }    
+    CBORCALLP(err1, c_tpm2_quote, cbor_new_definite_map(3));
+    /* cbor-map: quote */
+    CBORCALL(err2, rc,
+	     add_cbor_map(c_tpm2_quote, "quote", t_quote.quote, t_quote.qsize));
+    /* cbor-map: sign */
+    CBORCALL(err2, rc, add_cbor_map(c_tpm2_quote, "sign",
+				    t_quote.sign, t_quote.ssize));
+    /* app-hash */
+    CBORCALL(err2, rc, add_cbor_map(c_tpm2_quote, "app-hash", apphash, appsz));
+
+    /* tpm2_quote */
+    cbor_serialize_alloc(c_tpm2_quote, &tpm2_qbuf, &tpm2_qbsz);
+    if (tpm2_qbsz <= 0 || tpm2_qbsz > qbsize) {
+	fprintf(stderr, "%s: Cannot serialized at host code\n", __func__);
+	fprintf(stderr, "%s: tpm2_quote buffer size (%ld) must be >= %ld\n", __func__, qbsize, tpm2_qbsz);
+	goto err2;
+    }
+    memcpy(tpm2_serial, tpm2_qbuf, tpm2_qbsz);
+    /* free */
+    free(tpm2_qbuf);
+err2:
+    cbor_decref(&c_tpm2_quote);
+err1:
+    /* t_quote must be free ?? */
+    rc = 0;
+err0:
+    *sz = tpm2_qbsz;
+    return rc;
+}
+
+static int
+readpacket(int con, struct tpmd_packet **pkt)
+{
+    struct tpmd_packet	head;
+    int	rc = -1;
+    
+    rc = sock_recv(con, &head, sizeof(head));
+    if (rc == -1) goto err;
+    if (rc == -2) {
+	fprintf(stderr, "Short message\n"); goto err;
+    }
+    SYSCALLP(err, *pkt, malloc(head.len + sizeof(struct tpmd_packet)), "malloc");
+    memcpy(*pkt, &head, sizeof(head));
+    if (head.len > 0) {
+	rc = sock_recv(con, *pkt + 1, head.len);
+	if (rc < 0) goto err;
+    }
+    rc = 0;
+err:
+    return rc;
+}
+
+static void
+reply_attest(int con, uint8_t *nonce, uint8_t *tpm2_quote, size_t size,
+	     uint8_t *apphash)
+{
+    struct tpmd_packet	head;
+    cbor_item_t	*c_pkt;
+    uint8_t	*sendbufp = NULL;
+    size_t	sendsz = 0;
+    int	rc = 0;
+
+    CBORCALLP(err0, c_pkt, cbor_new_definite_map(2));
+    CBORCALL(err1, rc, add_cbor_map(c_pkt, "nonce", nonce, 32));
+    CBORCALL(err1, rc, add_cbor_map(c_pkt, "tpm2_quote", tpm2_quote, size));
+    cbor_serialize_alloc(c_pkt, &sendbufp, &sendsz);
+
+    head.cmd = TPMD_RPL_ATTEST;
+    if (sendbufp <= 0 || sendsz == 0) { goto err1; }
+    head.aux = TPMD_AUX_OK;
+    head.len = sendsz;
+    printf("%s: sending reply of attest, len=%ld\n", __func__, sendsz);
+    LIBCALLmsg(err2, rc, sock_send(con, &head, sizeof(head)),
+	       "%s: send error\n", __func__);
+    LIBCALLmsg(err2, rc, sock_send(con, sendbufp, sendsz),
+	       "%s: send error\n", __func__);
+    /**/
+err2:
+    cbor_decref(&c_pkt);
+    free(sendbufp);
+    return;
+    /* error */
+err1:
+    cbor_decref(&c_pkt);
+err0:
+    fprintf(stderr, "%s: Cannot serialized ...\n", __func__);
+    head.aux = TPMD_AUX_ERR;
+    head.len = 0;
+    rc = sock_send(con, &head, sizeof(head));
+}
+static void
+tpmddaemon(const char *path)
+{
+    int	sock;
+    int	con;
+    fprintf(stderr, "Daemon start (%s)\n", path);
+    printf("sizeof(struct tpmd_packet) = %ld\n", sizeof(struct tpmd_packet));
+    sock = sock_listen(path);
+    if (sock < 0) goto err;
+    printf("Waiting ..\n");
+    SYSCALL(err, con, accept(sock, NULL, NULL), "accept");
+    {
+	struct tpmd_packet *pktp;
+	uint8_t		apphash[32];
+	uint32_t	usize = 32;
+	int	pid;
+	int	rc;
+
+	pid = sock_client_pid(con);
+	sha256_pid(pid, apphash, &usize);
+	printf("Receiving request from PID(%d)\n", pid);
+	while ((rc = readpacket(con, &pktp)) == 0) {
+	    uint8_t	buf[1024];
+	    size_t	size = 0;
+	    switch(pktp->cmd) {
+	    case TPMD_REQ_HELLO:
+		printf("Receive REQ_HELLO\n");
+		break;
+	    case TPMD_REQ_ATTEST:
+		printf("Receive REQ_ATTEST len=%d\n", pktp->len);
+		dump("nonce: ", &pktp->data[0], 32);
+		make_tpm2_quote_with_pid(&pktp->data[0], 32,
+					 sizeof(buf), buf, &size,
+					 apphash, usize, pid);
+		printf("size of tpm2_serial: %ld\n", size);
+		reply_attest(con, &pktp->data[0], buf, size, apphash);
+		break;
+	    default:
+		printf("Unknown command: 0x%x, len=%d\n", pktp->cmd, pktp->len);
+	    }
+	    free(pktp);
+	}
+	printf("Exiting rc(%d)\n", rc);
+    }
+err:
+    if (sock) unlink(path);
+}
+
+int
+main(int argc, char **argv)
+{
+    int	rc;
+    char	*path;
+
+    if (argc < 2) usage(argv[0]);
+    path = strdup(argv[1]);
+    while ((rc = getopt(argc, argv, "d")) != -1) {
+	switch (rc) {
+	case 'd':
+	    dflag = 1; break;
+	}
+    }
+    tpmddaemon(path);
+}
