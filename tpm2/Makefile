@@ -23,6 +23,8 @@ measure: libmeasurement.c
 quote_esys: quote_esys.c
 	cc $(CFLAGS) -o $@ $^ $(LIBS)
 
+run-daemon:
+	sudo ./tpmdaemon /tmp/sock-tpmd-daemon
 clean:
 	rm -f  $(MYLIBS) $(MYCMDS)
 depend:

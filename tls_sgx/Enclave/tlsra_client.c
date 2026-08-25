@@ -22,6 +22,7 @@ int	dflag = 0;
 int	tflag = 0;
 int	vflag = 0;
 int	atflag = 0;	/* using Attester Daemon */
+char	*dpath;
 
 union unip {
     uint8_t	addr[4];
@@ -91,7 +92,9 @@ getoption(int argc, char **argv)
 	    case 'd':
 		dflag = 1; break;
 	    case 'D': /* using Attester Daemon */
-		atflag = 1; break;
+		atflag = 1;
+		dpath = strndup(argv[i+1], 108); i++;
+		break;
 	    case 't': if (i > argc) goto err;
 		tflag = atol(argv[i+1]); i++; printf("tflag is set\n"); break;
 	    case 'v':

@@ -163,6 +163,7 @@ err0:
  * The return value is a serialized CBOR map, not a CBOR structure.
  * It must be freed with free(3) after use.
  */
+extern char	*dpath;
 #define MAX_TMP2QUOTE_SERIALIZE	1024
 int
 make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
@@ -206,7 +207,7 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
 	if (atflag) {
 	    fprintf(stderr, "%s: ocall_make_tpm2_quote_via_daemon(...)\n",__func__);
 	    ocall_make_tpm2_quote_via_daemon(nonce, nsize, sizeof(tpm2_qbuf),
-					     tpm2_qbuf, &tpm2_qbsz);
+					     tpm2_qbuf, &tpm2_qbsz, dpath);
 	} else {
 	    fprintf(stderr, "%s: ocall_make_tpm2_quote(...)\n", __func__);
 	    ocall_make_tpm2_quote(nonce, nsize, sizeof(tpm2_qbuf),

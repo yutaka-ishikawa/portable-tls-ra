@@ -36,6 +36,8 @@
 #include "ptlsra.h"
 #include "../../tpm2/libquote.h"
 #include "../../tpm2/libmeasurement.h"
+#include "../../tpm2/libsock.h"
+#include "../../tpm2/tpmdaemon.h"
 
 #define TPM2_CALL(lbl, rc, command)	\
 do {					\
@@ -110,11 +112,92 @@ err0:
 
 void
 ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
-				 uint8_t *tpm2_serial, size_t *sz)
+				 uint8_t *tpm2_serial, size_t *sz,
+				 const char *dpath)
 {
-    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", __func__);
-    fprintf(stderr, "%s: NOT YET IMPLEMENTED\n", __func__);
-    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", __func__);
+    int	con;
+    int	rc;
+    struct tpmd_packet	head;
+    uint8_t	packet[sizeof(head)+32];
+    uint8_t	buf[1024];
+
+    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+    fprintf(stderr, "%s: Atester Daemon (%s)\n", __func__, dpath);
+    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+
+    con = sock_connect(dpath);
+    if (con < 0) goto err;
+    /*
+     * Request Attest to daemon
+     */
+    head.cmd = TPMD_REQ_ATTEST; head.len = 32;
+    memcpy(packet, &head, sizeof(head));
+    memcpy(&packet[sizeof(head)], nonce, 32);
+    fprintf(stderr, "sending request attest packet-len=%ld data-len=%d\n",
+	    sizeof(packet),
+	    ((struct tpmd_packet*)packet)->len);
+    rc = sock_send(con, packet, sizeof(packet));
+    if (rc < 0) goto err;
+    /*
+     * Receive Attest from daemon
+     */
+    rc = sock_recv(con, &head, sizeof(head));
+    if (rc < 0) goto err;
+    printf("head.cmd=0x%x head.len=%d qbsize=%ld\n", head.cmd, head.len, qbsize);
+    if (sizeof(buf) < head.len) {
+	fprintf(stderr, "%s: buf area must be enlarged (%ld, %d)\n",
+		__func__, sizeof(buf), head.len);
+	goto err;
+    }
+    rc = sock_recv(con, buf, head.len);
+    /*
+     * extracting data from Attester Daemon
+     */
+    {
+	struct cbor_load_result	res;
+	cbor_item_t	*cpkt = cbor_load(buf, head.len, &res);
+	struct cbor_pair	*cpair;
+	uint8_t		*rec_nonce = NULL;
+	uint8_t		*s_quote = NULL;
+	size_t		s_sz;
+	int i;
+	
+	if (cpkt == NULL || cbor_typeof(cpkt) != CBOR_TYPE_MAP) {
+	    fprintf(stderr, "%s: Received data is not a CBOR map\n", __func__);
+	    goto err;
+	}
+	cpair = cbor_map_handle(cpkt);
+	for (i = 0; i < cbor_map_size(cpkt); i++) {
+	    cbor_item_t	*key = cpair[i].key;
+	    char		*cp = (char*) cbor_string_handle(key);
+	    size_t		clen = cbor_string_length(key);
+	    if (!key || !cbor_isa_string(key)) continue;
+	    if (!strncmp(cp, "nonce", clen)) {
+		rec_nonce = cbor_bytestring_handle(cpair[i].value);
+		/*
+		 * Checking nonce
+		 */
+	    } else if (!strncmp(cp, "tpm2_quote", clen)) {
+		s_quote = cbor_bytestring_handle(cpair[i].value);
+		s_sz   = cbor_bytestring_length(cpair[i].value);
+		fprintf(stderr, "s_quote = %p, s_sz = %ld\n", s_quote, s_sz);
+	    }
+	}
+	/* tpm2 quote is copied */
+	if (qbsize < s_sz) {
+	    fprintf(stderr, "%s: tpm2_serial area must be enlarged (%ld, %ld)\n",
+		    __func__, qbsize, s_sz);
+	    goto err;
+	}
+	memcpy(tpm2_serial, s_quote, s_sz);
+	*sz = s_sz;
+    }
+    if (rc < 0) goto err;
+    *sz = head.len;
+    return;
+err:
+    fprintf(stderr, "%s: ABORT !!!\n", __func__);
+    abort();
 }
 
 void
@@ -213,15 +296,22 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
     int	i;
     int	rc = -1;
 
+    fprintf(stderr, "%s: @@@@@@@@ Enter size = %d code=%d\n",
+	    __func__, size, res.error.code);
     if (ctpm2 == NULL || cbor_typeof(ctpm2) != CBOR_TYPE_MAP) {
 	fprintf(stderr, "%s: Received data is not a serialized CBOR map\n", __func__);
 	goto err;
     }
     cpair = cbor_map_handle(ctpm2);
+    fprintf(stderr, "%s: @@@@@@@@ Map size =%ld\n", __func__, cbor_map_size(ctpm2));
     for (i = 0; i < cbor_map_size(ctpm2); i++) {
-	if (!cpair[i].key || !cbor_isa_string(cpair[i].key)) continue;
-	if (!strncmp((char*) cbor_string_handle(cpair[i].key),
-		     "quote", cbor_string_length(cpair[i].key))) {
+	cbor_item_t	*key = cpair[i].key;
+	char		*cp = (char*) cbor_string_handle(key);
+	size_t		clen = cbor_string_length(key);
+
+	fprintf(stderr, "\t@@@@@@@@@@ i(%d)\n", i);
+	if (!key || !cbor_isa_string(key)) continue;
+	if (!strncmp(cp, "quote", clen)) {
 	    /* TPM2 quote */
 	    size_t		off = 0;
 	    TPMS_QUOTE_INFO	*qinfo;
@@ -234,15 +324,13 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
 		    "QUOTE" : "");
 	    qinfo = &tpm_atst.attested.quote;
 	    show_tpm2quote_info("Received", qinfo);
-	} else if (!strncmp((char*) cbor_string_handle(cpair[i].key),
-			    "sign", cbor_string_length(cpair[i].key))) {
+	} else if (!strncmp(cp, "sign", clen)) {
 	    /* sign */
 	    uint8_t	*s_sign = cbor_bytestring_handle(cpair[i].value);
             size_t	sz = cbor_bytestring_length(cpair[i].value);
 	    size_t	off = 0;
 	    Tss2_MU_TPMT_SIGNATURE_Unmarshal(s_sign, sz, &off, &tpm_sig);
-	} else if (!strncmp((char*) cbor_string_handle(cpair[i].key),
-			    "app-hash", cbor_string_length(cpair[i].key))) {
+	} else if (!strncmp(cp, "app-hash", clen)) {
 	    /* Application Hash */
 	    s_app_hash = cbor_bytestring_handle(cpair[i].value);
 	    if (cbor_bytestring_length(cpair[i].value) != 32) {

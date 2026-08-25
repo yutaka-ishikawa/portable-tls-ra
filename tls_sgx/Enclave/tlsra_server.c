@@ -26,6 +26,7 @@ int	vflag = 0;
 int	Vflag = 0;	/* verify */
 int	Cflag = 0;	/* require Client Certificate */
 int	atflag = 0;	/* using Attester Daemon */
+char	*dpath;
 int	count = DEFAULT_COUNT;
 uint16_t port = DEFAULT_TCP_PORT;
 
@@ -43,7 +44,9 @@ getoption(int argc, char **argv)
 	    case 'd':
 		dflag = 1; break;
 	    case 'D': /* using Attester Daemon */
-		atflag = 1; break;
+		atflag = 1; 
+		dpath = strndup(argv[i+1], 108); i++;
+		break;
 	    case 'p': if (i > argc) goto err;
 		port = atol(argv[i+1]); i++; break;
 	    case 'r': /* remote attestation */

@@ -51,7 +51,8 @@ trusted {
 	void ocall_make_tpm2_quote_via_daemon([in, size=32] uint8_t *nonce, int nsize,
 				     	      size_t qbsize,
 					      [out, size=qbsize] uint8_t *tpm2_qbuf,
-					      [out] size_t *sz);
+					      [out] size_t *sz,
+					      [in, string] const char *dpath);
 	void ocall_make_tpm2_quote([in, size=32] uint8_t *nonce, int nsize,
 				   size_t qbsize,
 				   [out, size=qbsize] uint8_t *tpm2_qbuf,
