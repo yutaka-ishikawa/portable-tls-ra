@@ -123,22 +123,26 @@ ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
     int	con;
     int	rc;
     struct tpmd_packet	head;
-    uint8_t	packet[sizeof(head)+32];
+    uint8_t	packet[sizeof(head)+1024];
     uint8_t	buf[1024];
 
     fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
-    fprintf(stderr, "$ Talking to Atester Daemon (%s)\n", dpath);
+    fprintf(stderr, "$ Talking to Atester Daemon (%d) (%s)\n", nsize, dpath);
     fprintf(stderr, "$     %s\n", __func__);
     fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
 
+    if (nsize > 1024) {
+	fprintf(stderr, "sealed nonce size must be smaller than 1024\n");
+	abort();
+    }
     con = sock_connect(dpath);
     if (con < 0) goto err;
     /*
      * Request Attest to daemon
      */
-    head.cmd = TPMD_REQ_ATTEST; head.len = 32;
+    head.cmd = TPMD_REQ_ATTEST; head.len = nsize;
     memcpy(packet, &head, sizeof(head));
-    memcpy(&packet[sizeof(head)], nonce, 32);
+    memcpy(&packet[sizeof(head)], nonce, nsize);
     VERBOSE {
 	fprintf(stderr, "sending request attest packet-len=%ld data-len=%d\n",
 		sizeof(packet),

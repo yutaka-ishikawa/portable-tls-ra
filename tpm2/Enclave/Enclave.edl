@@ -1,0 +1,20 @@
+enclave {
+    from "sgx_tstdc.edl" import *;
+
+    trusted {
+        public sgx_status_t ecall_seal(uint32_t len_dat,
+				       [in, size=len_dat] const uint8_t *datp,
+				       uint32_t len_out,
+				       [out, size=len_out] uint8_t *outp,
+				       [out] uint32_t *encsz);
+        public sgx_status_t ecall_unseal(uint32_t len_dat,
+				       [in, size=len_dat] const uint8_t *datp,
+				       uint32_t len_out,
+				       [out, size=len_out] uint8_t *outp,
+				       [out] uint32_t *plsz);
+    };
+
+    untrusted {
+        void ocall_print([in, string] const char* msg);
+    };
+};

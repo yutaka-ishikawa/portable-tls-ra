@@ -199,8 +199,16 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
 	    VERBOSE {
 		fprintf(stderr, "%s: ocall_make_tpm2_quote_via_daemon(...)\n",__func__);
 	    }
-	    ocall_make_tpm2_quote_via_daemon(nonce, nsize, sizeof(tpm2_qbuf),
-					     tpm2_qbuf, &tpm2_qbsz, dpath);
+	    {
+		char	buf[1024];
+		uint32_t	rsz;
+		ecall_seal(32, nonce, 1024, buf, &rsz);
+		fprintf(stderr, "%s: sealing data size(%d)!!!\n",__func__, rsz);
+		ocall_make_tpm2_quote_via_daemon(buf, rsz, sizeof(tpm2_qbuf),
+						 tpm2_qbuf, &tpm2_qbsz, dpath);
+	    }
+	    //ocall_make_tpm2_quote_via_daemon(nonce, nsize, sizeof(tpm2_qbuf),
+	    //		tpm2_qbuf, &tpm2_qbsz, dpath);
 	} else {
 	    VERBOSE {
 		fprintf(stderr, "%s: ocall_make_tpm2_quote(...)\n", __func__);
@@ -338,4 +346,60 @@ err3:
     cbor_decref(&evidence);
 err0:
     return -1;
+}
+
+/*
+ *	seal/unseal: no MAC
+ */
+#include <sgx_tseal.h>
+sgx_status_t
+ecall_seal(uint32_t len_dat, const uint8_t *datp,
+	   uint32_t len_out, uint8_t *outp, uint32_t *encsz)
+{
+    uint32_t	enclen;
+    sgx_sealed_data_t 	*encbufp;
+    sgx_status_t  err;
+    
+    //printf("%s: len_dat=%d len_out=%d\n", __func__, len_dat, len_out);
+    *encsz = 0;
+    enclen = sgx_calc_sealed_data_size(0, len_dat);
+    printf("%s enclen=%d\n", __func__, enclen);
+    encbufp = (sgx_sealed_data_t*) malloc(enclen);
+    if(encbufp == NULL) {
+        return SGX_ERROR_OUT_OF_MEMORY;
+    }
+    err = sgx_seal_data(0, NULL, len_dat, datp, enclen, encbufp);
+    if (err == SGX_SUCCESS)  {
+        memcpy(outp, encbufp, enclen);
+	*encsz = enclen;
+    }
+    free(encbufp);
+    return err;
+}
+
+sgx_status_t
+ecall_unseal(uint32_t len_dat, const uint8_t *datp,
+	     uint32_t len_out, uint8_t *outp, uint32_t *plsz)
+{
+    uint32_t	dlen;
+    uint8_t	*decdata;
+    sgx_status_t st;
+
+    printf("%s: len_dat=%d len_out=%d\n", __func__, len_dat, len_out);
+
+    dlen = sgx_get_encrypt_txt_len((const sgx_sealed_data_t *)datp);
+    decdata = (uint8_t *) malloc(dlen);
+    if(decdata == NULL) {
+        st = SGX_ERROR_OUT_OF_MEMORY;
+	goto err1;
+    }
+    st = sgx_unseal_data((const sgx_sealed_data_t *) datp,
+			 NULL, 0, decdata, &dlen);
+    if (st != SGX_SUCCESS) goto err0;
+    memcpy(outp, decdata, dlen);
+    *plsz = dlen;
+err0:
+    free(decdata);
+err1:
+    return st;
 }

@@ -1,3 +1,8 @@
+```sh
+$ sudo apt install libseccomp-dev
+$ sudo apt install libcbor-dev
+```
+
 ## Quote
 ```sh
 make_tpm2_quote(nonce, nsize,

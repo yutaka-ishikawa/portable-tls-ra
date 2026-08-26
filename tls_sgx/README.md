@@ -35,6 +35,7 @@ $ echo 'deb [signed-by=/etc/apt/keyrings/intel-sgx-keyring.asc arch=amd64] https
 #### Then
 $ sudo apt update
 $ sudo apt install libsgx-dcap-quote-verify libsgx-dcap-quote-verify-dev
+$ sudo apt install libsgx-dcap-ql libsgx-dcap-ql-dev
 ```
 
 # build
@@ -47,6 +48,11 @@ $ sudo apt install libsgx-dcap-quote-verify libsgx-dcap-quote-verify-dev
 4)
    shell1) make run-tlsra_server
    shell2) make run-tlsra_client
+
+
+#
+
+shell4: cd tpm2/; make run-daemon
 
 
 ------------------------------------------------------------------------

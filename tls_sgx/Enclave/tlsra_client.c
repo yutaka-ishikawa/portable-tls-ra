@@ -23,6 +23,7 @@ int	tflag = 0;
 int	vflag = 0;
 int	atflag = 0;	/* using Attester Daemon */
 char	*dpath;
+char	*server_ipaddr = NULL;
 
 union unip {
     uint8_t	addr[4];
@@ -38,6 +39,30 @@ ipaddr(uint32_t ip)
     snprintf(buf, 32,
 	     "%03d.%03d.%03d.%03d", un.addr[0], un.addr[1], un.addr[2], un.addr[3]);
     return buf;
+}
+
+uint32_t
+stripaddr(char *addr)
+{
+    int i, j, pos;
+    union unip	un;
+    j = 0;
+    pos = 0;
+    printf("strip = ");
+    while(*addr != 0) {
+	if (*addr == '.') {
+	    printf("%d.", j);
+	    un.addr[pos] = j;
+	    pos++;
+	    j = 0;
+	} else {
+	    j = j*10 + (*addr - '0');
+	}
+	addr++;
+    }
+    un.addr[pos] = j;
+    printf("%d\n", j);
+    return un.ip;
 }
 
 
@@ -95,6 +120,9 @@ getoption(int argc, char **argv)
 		atflag = 1;
 		dpath = strndup(argv[i+1], 108); i++;
 		break;
+	    case 's': /* server ip */
+		server_ipaddr = strndup(argv[i+1], 80); i++;
+		break;
 	    case 't': if (i > argc) goto err;
 		tflag = atol(argv[i+1]); i++; printf("tflag is set\n"); break;
 	    case 'v':
@@ -122,24 +150,6 @@ main(int argc, char **argv)
     int		size = DEFAULT_SIZE;
     int		rc;
 
-#if 0
-    while ((rc = getopt(argc, argv, "c:dD:p:t:v")) != -1) {
-	switch (rc) {
-	case 'c':
-	    count = atol(optarg); break;
-	case 'd':
-	    dflag = 1; break;
-	case 'D':
-	    ip = str2ip(optarg); break;
-	case 'p':
-	    port = atol(optarg); break;
-	case 't':
-	    tflag = atol(optarg); printf("tflag is set\n"); break;
-	case 'v':
-	    vflag = 1; printf("vflag is set\n"); break;
-	}
-    }
-#endif
     getoption(argc, argv);
     printf("Enclave: dflag = %d\n", dflag);
     combuf_init(buf, BUF_SIZE);
@@ -156,6 +166,10 @@ main(int argc, char **argv)
      */
     TLSRA_SSLCALLP(err, ssl, SSL_new(ctx));
 
+    if (server_ipaddr) {
+	ip = stripaddr(server_ipaddr);
+	printf("string ip address = %s\n", server_ipaddr);
+    }
     printf("ip=0x%x port=%d\n", ip, port);
     sock = sock_connect(ip, port);
     if (sock < 0) {
