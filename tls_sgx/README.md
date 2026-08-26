@@ -15,6 +15,27 @@ Intel TLS
   Inside Enclave
       time() is translated to sgxssl_time()
 
+# Intel dcap libs
+```sh
+$ curl -fsSLo sgx_linux_x64_sdk.bin https://download.01.org/intel-sgx/latest/linux-latest/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.30.101.1.bin
+$ chmod +x sgx_linux_x64_sdk.bin
+$ sudo ./sgx_linux_x64_sdk.bin --prefix /opt/intel
+####
+$ sudo mkdir -p /etc/apt/keyrings
+$ curl -fsSLO \
+	https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key
+$ sudo mv intel-sgx-deb.key \
+	  /etc/apt/keyrings/intel-sgx-keyring.asc
+### For jammy
+$ echo 'deb [signed-by=/etc/apt/keyrings/intel-sgx-keyring.asc arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu jammy main' \
+| sudo tee /etc/apt/sources.list.d/intel-sgx.list
+### For noble
+$ echo 'deb [signed-by=/etc/apt/keyrings/intel-sgx-keyring.asc arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu noble main' \
+| sudo tee /etc/apt/sources.list.d/intel-sgx.list
+#### Then
+$ sudo apt update
+$ sudo apt install libsgx-dcap-quote-verify libsgx-dcap-quote-verify-dev
+```
 
 # build
 2)
