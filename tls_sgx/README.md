@@ -4,6 +4,7 @@
    git submoudle update --init --recursive
 
 # Intel TLS built
+# No needed ??
 Intel TLS
   $ cd ./linux-sgx/SampleCode/SampleAttestedTLS
   $ cd ./linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux

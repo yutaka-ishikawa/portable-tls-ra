@@ -1,3 +1,6 @@
+#define DEFAULT_TCP_PORT	1100
+#define DEFAULT_COUNT	1
+
 #define LIBCALL(label, val, lib, fmt, ...)	\
 do {				\
     val = lib;			\
@@ -18,5 +21,6 @@ do {				\
 
 extern char	*get_current_dir_name(void);
 
+extern int	getoption(int argc, char **argv);
 extern int	makeargs(int argc, char **argv, int **argpos,
 			 char **buf, int *buflen);

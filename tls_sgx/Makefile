@@ -1,6 +1,7 @@
 SGX_MODE = HW
-MY_SEARCHPATH = --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include/ \
---search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux/package/include/
+#MY_SEARCHPATH = --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include/ \
+#--search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux/package/include/
+MY_SEARCHPATH = 
 
 #MYCOPTION = -DSGX_ENCLAVE -DOPENSSL_DEV_NO_ATOMICS
 MYCOPTION = -DSGX_ENCLAVE_WITH_TPM2 -DOPENSSL_DEV_NO_ATOMICS
@@ -166,7 +167,7 @@ Host/host_server.o: Host/host_server.c Enclave/Enclave_u.h
 	$(CC) $(HOST_CFLAGS) $(SGX_INCLUDE) -I./Enclave/ -c $< -o $@
 Host/host_client.o: Host/host_client.c Enclave/Enclave_u.h
 	$(CC) $(HOST_CFLAGS) $(SGX_INCLUDE) -I./Enclave/ -c $< -o $@
-Host/%.o: Host/%.c Enclave/Enclave_u.h
+Host/%.o: Host/%.c Enclave/Enclave_u.h Host/host.h
 	$(CC) $(HOST_CFLAGS) -I./Enclave/ -c $< -o $@
 
 # --- Host binary ---
@@ -206,8 +207,9 @@ certgg:
 #
 run-tlsra_server:
 #	./host -p 10101 -V -v -r
+#	./host_server -V -r
 	../tpm2/measure -o ./measure_server.bin ./host_server
-	./host_server -V -v -r
+	./host_server -V -r
 run-tlsra_server-D:
 	../tpm2/measure -o ./measure_server.bin ./host_server
 	./host_server -V -v -r -D /tmp/sock-tpmd-daemon
@@ -218,7 +220,8 @@ run-tlsra_client:
 	./host_client -d
 run-tlsra_client-D:
 	../tpm2/measure -o ./measure_client.bin ./host_client
-	./host_client -d -D /tmp/sock-tpmd-daemon
+#	./host_client -d -D /tmp/sock-tpmd-daemon
+	./host_client -D /tmp/sock-tpmd-daemon
 trace-run-tlsra_client:
 	strace -f -o ./trace-client.txt ./host_client -d -O
 #
