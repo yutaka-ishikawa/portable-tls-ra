@@ -1,7 +1,6 @@
 SGX_MODE = HW
-#MY_SEARCHPATH = --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include/ \
+MY_SEARCHPATH = --search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx_socket/include/ \
 #--search-path /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux/package/include/
-MY_SEARCHPATH = 
 
 #MYCOPTION = -DSGX_ENCLAVE -DOPENSSL_DEV_NO_ATOMICS
 MYCOPTION = -DSGX_ENCLAVE_WITH_TPM2 -DOPENSSL_DEV_NO_ATOMICS
