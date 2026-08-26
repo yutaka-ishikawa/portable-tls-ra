@@ -103,7 +103,7 @@ run-sealtest:
 	./sealtest -s -i ./plain.txt -o ./cipher.txt
 	./sealtest -u -i ./cipher.txt
 clean:
-	rm -f $(MYLIBS) $(MYCMDS) Host/*.o Enclave/*.o Enclave/*.so
+	rm -f $(MYLIBS) $(MYCMDS) Host/*.o Enclave/*.o Enclave/*.so Enclave/Enclave_u.h Enclave/Enclave_t.h
 depend:
 
 -include $(DEPS)
