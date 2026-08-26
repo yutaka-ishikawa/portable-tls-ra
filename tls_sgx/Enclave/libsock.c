@@ -1,3 +1,4 @@
+struct timespec;
 #include "Enclave_t.h"
 
 int

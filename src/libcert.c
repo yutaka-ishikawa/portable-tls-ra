@@ -327,16 +327,13 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
     /*
      *
      */
-    fprintf(stderr, "%s: enter LINE=%d\n", __func__, __LINE__);
     make_cbor_tpm2_claims_from_enclave(pubkey, pubksz, nonce, nsize,
 				       &claims, &csz);
-    fprintf(stderr, "%s: YIIIII CLAIMS csz = %ld LINE=%d\n", __func__, csz, __LINE__);
     SHA256(claims, csz, (unsigned char *) &report_data);
     /*
      * claims are used for user report
      */
     /* OCALL to get target info of QE */
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
     TLSRA_OCALLmsg(err0, rc,
 		   sgx_tls_get_qe_target_info_ocall(&qrc, &target_info,
 						    sizeof(sgx_target_info_t)),
@@ -346,9 +343,10 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 		"%s: sgx_tls_get_qe_target_info_ocall error (qrc=0x%x)\n", __func__, qrc);
 	goto err0;
     } else {
-	/* for debugging purpose */
-	fprintf(stderr,
-		"%s: sgx_tls_get_qe_target_info_ocall SUCCESS\n", __func__);
+	VERBOSE {
+	    fprintf(stderr,
+		    "%s: sgx_tls_get_qe_target_info_ocall SUCCESS\n", __func__);
+	}
     }
     TLSRA_OCALLmsg(err0, rc,
 		   sgx_create_report(&target_info, &report_data, &app_report),
@@ -612,9 +610,11 @@ verify_cert(X509 *x509, uint8_t *nonce)
 
 	param = X509_STORE_CTX_get0_param(ctx);
 	iprm = (struct _X509_VERIFY_PARAM_st*) param;
+	fprintf(stderr, "--------------------------\n");
 	fprintf(stderr, "%s:X509_STORE_CTX\n", __func__);
 	fprintf(stderr, "\tname=%s\n", iprm->name);
 	fprintf(stderr, "\tflags=0x%lx\n", iprm->flags);
+	fprintf(stderr, "\tdepth=0x%x\n", iprm->depth);
 	fprintf(stderr, "%s: calling X509_verify_cert\n", __func__);
     }
 #endif

@@ -14,6 +14,16 @@
 
 int	oflag = 0;
 int	dflag = 0;
+int	rflag = 0;
+int	tflag = 0;
+int	vflag = 0;
+int	Vflag = 0;
+int	Cflag = 0;
+int	count = DEFAULT_COUNT;
+uint16_t port = DEFAULT_TCP_PORT;
+int	atflag = 0;
+char	*dpath = NULL;
+
 #define OCALL_PRINT(oflag)	if (oflag) printf("OCALL %s INVOKED\n", __func__);
 
 void ocall_time(uint64_t *tp)
@@ -72,8 +82,7 @@ void ocall_putn(const char *s, int len, size_t *wlen) {
 void ocall_getenv(const char *env, char *result, int len)
 {
     char	*cp = getenv(env);
-    printf("%s: host side is called: env(%s) result = %p\n", __func__, env, result);
-    printf("cp = %p\n", cp);
+
     if (cp) {
 	if (len < strlen(cp)) {
 	    fprintf(stderr,
@@ -225,18 +234,6 @@ makeargs(int argc, char **argv, int **argpos, char **buf, int *buflen)
     int		*targpos;
     int	rc;
 
-#if 0
-    while ((rc = getopt(argc, argv, "O")) != -1) {
-	switch(rc) {
-	case 'O':
-	    printf("%s: oflag is set\n", __func__);
-	    oflag = 1; break;
-	case 'd':
-	    printf("%s: dflag is set\n", __func__);
-	    dflag = 1; break;
-	}
-    }
-#endif
     for (i = 0; i < argc; i++) {
         len += strlen(argv[i]) + 1;
     }
@@ -248,10 +245,48 @@ makeargs(int argc, char **argv, int **argpos, char **buf, int *buflen)
 	len = strlen(argv[i]);
 	strcpy(&tbuf[pos], argv[i]);
 	pos += len + 1;
-	printf("argv[%d] = %s\n", i, argv[i]);
     }
     return 0;
 }
+
+int
+getoption(int argc, char **argv)
+{
+    int	i;
+    for (i = 1; i < argc; i++) {
+	if (argv[i][0] == '-') {
+	    switch (argv[i][1]) {
+	    case 'C': Cflag = 1; break;
+	    case 'c': if (i > argc) goto err;
+		count = atol(argv[i+1]); i++; break;
+	    case 'd':
+		dflag = 1; break;
+	    case 'D': /* using Attester Daemon */
+		/* No meaning in the host code */
+		atflag = 1; 
+		dpath = strndup(argv[i+1], 108); i++;
+		break;
+	    case 'p': if (i > argc) goto err;
+		port = atol(argv[i+1]); i++; break;
+	    case 'r': /* remote attestation */
+		rflag = 1; break;
+	    case 't': if (i > argc) goto err;
+		tflag = atol(argv[i+1]); i++; break;
+	    case 'v':
+		vflag = 1; break;
+	    case 'V': /* verify */
+		Vflag = 1; break;
+	    }
+	} else {
+	    break;
+	}
+    }
+    return i;
+err:
+    printf("A few arguments\n");
+    return -1;
+}
+
 
 /*
  * The following functions are defined in the following files:

@@ -20,6 +20,9 @@
 
 #include "libquote.h"
 
+extern int	vflag;
+#define VERBOSE	if (vflag)
+
 #define TPM2_CALL(lbl, rc, command)	\
 do {					\
     rc = command;			\
@@ -237,11 +240,13 @@ pcr_select(TPML_PCR_SELECTION *sel, int alg, uint8_t *pcrs, int count)
         pcr = pcrs[i];
         sel->pcrSelections[0].pcrSelect[pcr / 8] |= (BYTE) (1u << (pcr % 8));
     }
-    printf("%s: ", __func__);
-    for (i = 0; i < 32/8; i++) {
-        printf("%02x:", sel->pcrSelections[0].pcrSelect[i]);
+    VERBOSE {
+	fprintf(stderr, "%s: ", __func__);
+	for (i = 0; i < 32/8; i++) {
+	    fprintf(stderr, "%02x:", sel->pcrSelections[0].pcrSelect[i]);
+	}
+	fprintf(stderr, "\n");
     }
-    printf("\n");
 }
 
 /*
@@ -281,7 +286,9 @@ make_tpm2_quote(uint8_t *udata, int usize,
     }
     qdata.size = usize;
     memcpy(qdata.buffer, udata, usize);
-    dump("@@@@@@@@@@@@@@@@@@ TPM qdata: ", qdata.buffer, usize);
+    VERBOSE {
+	dump("@@@@@@@@@@@@@@@@@@ TPM qdata: ", qdata.buffer, usize);
+    }
     /* Initializing TSS2 context */
     TPM2_CALL(ext, rc, Tss2_TctiLdr_Initialize(NULL, &tctx));
     /* Initializing ESYS context */
@@ -321,7 +328,6 @@ make_tpm2_quote(uint8_t *udata, int usize,
 	goto err_ext;
     }
     /* setup trinity_quote structure (out) */
-    fprintf(stderr, "%s: YIIIIIIIIIIIIII Maked QUOTE size = %d\n", __func__, quoted->size);
     t_quote->qtype = QUOTE_TPM2;
     t_quote->qsize = quoted->size;
     /* copy quote */
@@ -330,8 +336,7 @@ make_tpm2_quote(uint8_t *udata, int usize,
     TPM2_CALL(err_ext, rc, Tss2_MU_TPMT_SIGNATURE_Marshal(
 		  sig, t_quote->sign, SIGNSIZE, &off));
     t_quote->ssize = off;
-    printf("qsize = %d, ssize = %d, off = %ld\n",
-	   t_quote->qsize, t_quote->ssize, off);
+    //printf("qsize = %d, ssize = %d, off = %ld\n",t_quote->qsize, t_quote->ssize, off);
 err_ext:
     Esys_Free(quoted);
     Esys_Free(sig);
@@ -474,12 +479,18 @@ verify_tpm2_quote(const uint8_t *s_quoted, int sq_size,
     }
     trc = EVP_DigestVerifyFinal(mdctx, sig_data, sig_size);
     if (trc == 1) {
-        fprintf(stderr, "TPM2 Quote signature: VALID\n");
+	VERBOSE {
+	    fprintf(stderr, "TPM2 Quote signature: VALID\n");
+	}
 	rc = 0;
     } else if (trc == 0) {
-        fprintf(stderr, "TPM2 Quote signature: INVALID\n");
+	VERBOSE {
+	    fprintf(stderr, "TPM2 Quote signature: INVALID\n");
+	}
     } else {
-        fprintf(stderr, "OpenSSL signature verification error\n");
+	VERBOSE {
+	    fprintf(stderr, "OpenSSL signature verification error\n");
+	}
         ERR_print_errors_fp(stderr);
     }
 err:
@@ -489,6 +500,7 @@ err:
 
 #ifdef LIBQUOTE_TEST
 #define NONCE_SIZE	32
+int	vflag = 0;
 int
 main(int argc, char **argv)
 {

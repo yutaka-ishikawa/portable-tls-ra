@@ -166,10 +166,14 @@ main(int argc, char **argv)
     TLSRA_SSLCALL(err, rc, SSL_set_fd(ssl, sock));
 
     TLSRA_SSLCALL(err, rc, SSL_connect(ssl));
-    printf("Conntect to %s\n", ipaddr(ip));
+    printf("***********************************\n");
+    printf("****** Conntect to %s \n", ipaddr(ip));
+    printf("***********************************\n");
 
     /* showing nonces of both client and server */
-    TLSRA_show_nonce(ssl);
+    VERBOSE {
+	TLSRA_show_nonce(ssl);
+    }
 
     /* main */
     printf("SSL TEST\n");

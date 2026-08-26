@@ -7,6 +7,7 @@
 #if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
 /* SGX */
 #include "sgxenv.h"
+struct timespec;
 #include <Enclave_t.h>
 #endif
 
@@ -30,7 +31,7 @@ hash_extend_sha256(const uint8_t *old_hash, const uint8_t *digest,
     if (len == SHA256_DIGEST_LENGTH) {
 	rc = 0;
     } else {
-	fprintf(stderr, "%s: size is not %d(SHA256_DIGEST_LENGTH)\n", __func__, SHA256_DIGEST_LENGTH);
+	fprintf(stderr, "%s: ERROR. size is not %d(SHA256_DIGEST_LENGTH)\n", __func__, SHA256_DIGEST_LENGTH);
     }
 err1:
     EVP_MD_CTX_free(ctx);
@@ -38,6 +39,16 @@ err0:
     return rc;
 }
 
+static void
+dump(const char *msg, const unsigned char *bf, int size)
+{
+    int	i;
+    fprintf(stderr, "%s", msg);
+    for (i = 0; i < size; i++) {
+	fprintf(stderr, "%02x:", bf[i]);
+    }
+    fprintf(stderr, "\n");
+}
 
 /*
  * return value is true (1) or false(0)
@@ -77,19 +88,11 @@ pem2der_sha256(const uint8_t *pem, int pemsz, cbor_item_t **sha256)
     size_t	len = 0;
     int		rc = -1;
 
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     TLSRA_SSLCALLP(err0, bio, BIO_new_mem_buf(pem, pemsz));
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     TLSRA_SSLCALLP(err1, pkey, PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL));
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     TLSRA_SSLCALLN0(err2, len, i2d_PUBKEY(pkey, &der));
-    fprintf(stderr, "%s: LINE=%d PUBKEY len=%ld\n", __func__, __LINE__, len);
-    dump("pem2der_sha256: YI!!! pem:", pem, pemsz);
-    dump("pem2der_sha256: YI!!! i2d_PUBKEY(der):", der, len);
     SHA256(der, len, pksha);
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     TLSRA_CBORCALLP(err3, citem, cbor_build_bytestring(pksha, SHA256_DIGEST_LENGTH));
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     *sha256 = citem;
     rc = 0;
 err3:    
@@ -123,36 +126,29 @@ make_cbor_pkhash_entry(const uint8_t *pubkey, size_t pksz,
     size_t	sz;
     int	rc = 0; /* false */
 
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     TLSRA_CBORCALLP(err0, chash_ent, cbor_new_definite_array(2));
     TLSRA_CBORCALLP(err1, chash_algid,
 		    cbor_build_uint8(IANA_HASH_ALG_REGISTRY_SHA256));
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     /* pubkey: pem --> der --> sha256 */
-    dump("Enclave: YI!!! pubkey(pem):", pubkey, pksz);
+    // dump("Enclave: YI!!! pubkey(pem):", pubkey, pksz);
     TLSRA_LIBCALL(err2, sz, pem2der_sha256(pubkey, pksz, &chash_val));
-    dump("Enclave: YI!!! make_cbor_pkhash_entry:",
-	 cbor_bytestring_handle(chash_val), cbor_bytestring_length(chash_val));
+    //dump("Enclave: YI!!! make_cbor_pkhash_entry:",
+    //     cbor_bytestring_handle(chash_val), cbor_bytestring_length(chash_val));
     /**/
     TLSRA_CBORCALL(err3, bval, cbor_array_push(chash_ent, chash_algid));
     TLSRA_CBORCALL(err3, bval, cbor_array_push(chash_ent, chash_val));
     *hsz = 0;
     TLSRA_CBORCALL_SALLOC(err3, *hsz,
 			  cbor_serialize_alloc(chash_ent, hash, hsz));
-    fprintf(stderr, "%s: hsz = %ld LINE=%d\n", __func__, *hsz, __LINE__);
     /* success */
-    rc = 1; /* success */
+    rc = 1;
 err3:
-    fprintf(stderr, "%s: chash_algid=%p LINE=%d\n", __func__, chash_algid, __LINE__);
     cbor_decref(&chash_val);
 err2:
-    fprintf(stderr, "%s: chash_algid=%p LINE=%d\n", __func__, chash_algid, __LINE__);
     cbor_decref(&chash_algid);
 err1:
-    fprintf(stderr, "%s: chash_ent=%p LINE=%d\n", __func__, chash_ent, __LINE__);
     cbor_decref(&chash_ent);
 err0:
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
     return rc;
 }
 
@@ -180,42 +176,43 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
     int	cret;
     int	rc = -1;
 
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
     TLSRA_CBORCALLP(err0, c_claims, cbor_new_definite_map(3));
-    fprintf(stderr, "%s: YI!!! cbor_new_definite_map(3) LINE=%d\n", __func__, __LINE__);    
     /*
      * 1st entry: "cbor pubkey-hash"
      */
     /* chash_val must be free */
     TLSRA_CBORCALL(err1, rc,
 		   make_cbor_pkhash_entry(pubkey, pubksz, &chash_val, &chash_sz));
-    fprintf(stderr, "%s: chash_sz = %ld LINE=%d\n", __func__, chash_sz, __LINE__);
     TLSRA_CBORCALL(err2, rc,
 		   add_cbor_map(c_claims, "pubkey-hash", chash_val, chash_sz));
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     /*
      * 2nd entry: "nonce"
      */
     TLSRA_CBORCALL(err2, rc,
 		   add_cbor_map(c_claims, "nonce", nonce, nsize));
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);    
     /*
      * 3rd entry: "tpm2-quote"
      */
     {
 	extern int atflag;
 	if (atflag) {
-	    fprintf(stderr, "%s: ocall_make_tpm2_quote_via_daemon(...)\n",__func__);
+	    VERBOSE {
+		fprintf(stderr, "%s: ocall_make_tpm2_quote_via_daemon(...)\n",__func__);
+	    }
 	    ocall_make_tpm2_quote_via_daemon(nonce, nsize, sizeof(tpm2_qbuf),
 					     tpm2_qbuf, &tpm2_qbsz, dpath);
 	} else {
-	    fprintf(stderr, "%s: ocall_make_tpm2_quote(...)\n", __func__);
+	    VERBOSE {
+		fprintf(stderr, "%s: ocall_make_tpm2_quote(...)\n", __func__);
+	    }
 	    ocall_make_tpm2_quote(nonce, nsize, sizeof(tpm2_qbuf),
 				  tpm2_qbuf, &tpm2_qbsz);
 	}
-	fprintf(stderr,
-		"%s: RETURN from OCALL tpm2_qbuf=%p tpm2_qbsz=%ld LINE=%d\n",
-		__func__, tpm2_qbuf, tpm2_qbsz, __LINE__);
+	VERBOSE {
+	    fprintf(stderr,
+		    "%s: RETURN from OCALL tpm2_qbuf=%p tpm2_qbsz=%ld LINE=%d\n",
+		    __func__, tpm2_qbuf, tpm2_qbsz, __LINE__);
+	}
     }
     if (tpm2_qbsz <= 0) {
 	goto err2;
@@ -228,7 +225,6 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
     TLSRA_CBORCALL_SALLOC(err2, claims_bufsz,
 			  cbor_serialize_alloc(c_claims, &claims_buf, &claims_bufsz));
     /* success */
-    fprintf(stderr, "%s: YI!!! claims SUCESS LINE=%d\n", __func__, __LINE__);
     *claims = claims_buf;
     *csz = claims_bufsz;
     rc = 0;

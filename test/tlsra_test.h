@@ -16,7 +16,10 @@ extern void perror(const char*);
 #define DEFAULT_SIZE	1024
 #define BUF_SIZE	1024
 
+#ifndef VERBOSE
+extern int vflag;
 #define VERBOSE if (vflag)
+#endif /* VERBOSE */
 #define VERYFY if (Vflag)
 #define DEBUG if (dflag)
 

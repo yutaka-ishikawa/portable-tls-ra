@@ -40,8 +40,14 @@
 #endif
 
 #if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
+struct timespec;
 #include "Enclave_t.h"
 #include "sgxenv.h"
+#endif
+
+#ifndef VERBOSE
+extern int	vflag;
+#define VERBOSE		if (vflag)
 #endif
 
 /*
@@ -176,7 +182,6 @@ TLSRA_show_nonce(SSL *ssl)
     printf("Client Nonce: size = %ld\n", sz);
     if (sz > 0) {
 	dump("\tnonce = ", out, sz);
-    } else {
     }
     sz = SSL_get_server_random(ssl, out, O_SIZE);
     printf("Server Nonce: size = %ld\n", sz);
@@ -606,7 +611,9 @@ on_client_hello(SSL *ssl, int *al, void *arg)
     int	len;
     int	rc;
     // SSL_set_msg_callback(con, msg_callback);
-    printf("Certificate initializaion rflag=%d\n", rflag);
+    VERBOSE {
+	fprintf(stderr, "Certificate initializaion rflag=%d\n", rflag);
+    }
     /* nonce from client, it is not needed to free nounce */
     if (rflag) {
 	X509		*cert = NULL;
@@ -621,23 +628,25 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	int		len;
 	uint8_t		*evidence;
 	size_t		evsz;
-	
-	printf("%s: TLS-RA mode\n", __func__);
+
+	VERBOSE {
+	    fprintf(stderr, "%s: TLS-RA mode\n", __func__);
+	}
 	/* nonce length might be 32B */
 	len = SSL_client_hello_get0_random(ssl, &nonce);
-	if (len > 0) {
-	    printf("%s: noncesize(%d)\t", __func__, len);
-	    dump("\tnonce = ", nonce, len);
-	} else {
-	    printf("\t%s: No nonce has been received\n", __func__);
+	VERBOSE {
+	    if (len > 0) {
+		dump("Client nonce = ", nonce, len);
+	    } else {
+		printf("\t%s: No nonce has been received\n", __func__);
+	    }
 	}
 	pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
-	printf("%s: LINE=%d\n", __func__, __LINE__);
 	rc = make_certificate_evidence(pubkey, pubsz,
 				       (uint8_t*) nonce, len,
 				       &quote, &qsz, &evidence, &evsz);
 	if (rc == 0) {
-	    printf("Certificate evidence has been created successfuly.\n");
+	    printf("Certificate evidence has been created successfuly on Server.\n");
 	} else {
 	    printf("Creation of certificate evidence failed.\n"
 		   "No evidence is added in the cert\n");
@@ -661,7 +670,9 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	pkey = TLSRA_PKEY_read("server.key");
 	TLSRA_SSLCALL(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     }
-    printf("%s: SSL_CLIENT_HELLO_SUCCESS\n", __func__);
+    VERBOSE {
+	fprintf(stderr, "%s: SSL_CLIENT_HELLO_SUCCESS\n", __func__);
+    }
     /* success */
     return SSL_CLIENT_HELLO_SUCCESS;
 err3: /* error */
@@ -713,32 +724,65 @@ mysslra_verify(int ok, X509 *x509, unsigned char *nonce)
 /*
  * Server certificate verification
  */
+#define WHICH_SERVERSIDE	0
+#define WHICH_CLIENTSIDE	1
 static int
-verify(int ok, X509_STORE_CTX *ctx)
+verify(int ok, X509_STORE_CTX *ctx, int which)
 {
     X509	*x509;
     SSL		*ssl;
     uint8_t	nonce[32];
     size_t	sz;
+    int		depth, err;
 
-    DEBUG {
-	fprintf(stderr, "%s: Server certificate verification\n", __func__);
+    VERBOSE {
+	fprintf(stderr, "%s: %s\n", __func__,
+		which == 0 ? "SERVER SIDE" : "CLIENT SIDE");
     }
+    
     x509 = X509_STORE_CTX_get_current_cert(ctx);
     ssl = X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
+    depth = X509_STORE_CTX_get_error_depth(ctx);
+    err = X509_STORE_CTX_get_error(ctx);
+
     if (x509 == NULL || ssl == NULL) {
 	fprintf(stderr, "%s: Server Cert verificaion fails.\n", __func__);
+	return 0;
+    }
+    if (ok == 1) {
 	return ok;
     }
-    sz = SSL_get_server_random(ssl, nonce, 32);
-    if (verify_cert(x509, nonce) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
-	fprintf(stderr, "Verification success.\n");
-	ok = 1;
-    } else {
-	fprintf(stderr, "Verification error, but become OK\n");
-	ok = 1;
+    /* ok == 0 */
+    if (depth == 0 &&
+        err == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT) {
+	if (which == WHICH_SERVERSIDE) {
+	    sz = SSL_get_server_random(ssl, nonce, 32);
+	} else {
+	    sz = SSL_get_client_random(ssl, nonce, 32);
+	}
+	if (verify_cert(x509, nonce) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
+	    fprintf(stderr, "Verification success.\n");
+	    ok = 1;
+	} else {
+	    fprintf(stderr, "Remote Attestation Verificatiobn error\n");
+	    ok = 0;
+	}
     }
     return ok;
+}
+
+static int
+client_verify(int ok, X509_STORE_CTX *ctx)
+{
+    int	rc = verify(ok, ctx, WHICH_CLIENTSIDE);
+    return rc;
+}
+
+static int
+server_verify(int ok, X509_STORE_CTX *ctx)
+{
+    int	rc = verify(ok, ctx, WHICH_SERVERSIDE);
+    return rc;
 }
 
 /*
@@ -768,14 +812,16 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
     }
     fprintf(stderr, "TLS-RA mode\n");
     nsize = SSL_get_server_random(ssl, nonce, SSL3_RANDOM_SIZE);
-    dump("\tnonce = ", nonce, sz);
+    // dump("\tnonce = ", nonce, sz);
     *pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
-    printf("%s: *pkey=%p\n", __func__, *pkey);
+    // printf("%s: *pkey=%p\n", __func__, *pkey);
     rc = make_certificate_evidence(pubkey, pubsz,
 				   nonce, nsize,
 				   &quote, &qsz, &evidence, &evsz);
     if (rc == 0) {
-	printf("Certificate evidence has been created successfuly.\n");
+	VERBOSE {
+	    printf("Certificate evidence has been created successfuly on Client.\n");
+	}
     } else {
 	printf("Creation of certificate evidence failed (rc=%d).\n"
 	       "No evidence is added in the client cert\n", rc);
@@ -792,13 +838,14 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
 void
 TLSRA_server_init(SSL_CTX *ctx, int flag)
 {
+    printf("TLS-RA mode\n");
     rflag = flag;
     /*
      * Handling Handshake during client hello message on the server side
      */
     SSL_CTX_set_verify(ctx,
 		       SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-		       verify);
+		       server_verify);
     SSL_CTX_set_client_hello_cb(ctx, on_client_hello, NULL);
 }
 
@@ -810,7 +857,7 @@ TLSRA_client_init(SSL_CTX *ctx, int flag)
      * Handling Handshake during client hello message
      */
     SSL_CTX_set_client_cert_cb(ctx, on_client_cert);
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify);
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, client_verify);
     SSL_CTX_set_verify_depth(ctx, 10);
     /* Require Server certificate and verification*/
     /* CA cert (PEM) */

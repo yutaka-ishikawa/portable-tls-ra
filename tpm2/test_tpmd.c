@@ -13,6 +13,7 @@
 #include <getopt.h>
 
 int	dflag = 0;
+int	vflag = 0;
 
 static void
 usage(const char *cmd)

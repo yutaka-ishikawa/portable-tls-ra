@@ -39,6 +39,11 @@
 #include "../../tpm2/libsock.h"
 #include "../../tpm2/tpmdaemon.h"
 
+#ifndef VERBOSE
+extern int	vflag;
+#define VERBOSE	if (vflag)
+#endif
+
 #define TPM2_CALL(lbl, rc, command)	\
 do {					\
     rc = command;			\
@@ -121,9 +126,10 @@ ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
     uint8_t	packet[sizeof(head)+32];
     uint8_t	buf[1024];
 
-    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
-    fprintf(stderr, "%s: Atester Daemon (%s)\n", __func__, dpath);
-    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
+    fprintf(stderr, "$ Talking to Atester Daemon (%s)\n", dpath);
+    fprintf(stderr, "$     %s\n", __func__);
+    fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
 
     con = sock_connect(dpath);
     if (con < 0) goto err;
@@ -133,9 +139,11 @@ ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
     head.cmd = TPMD_REQ_ATTEST; head.len = 32;
     memcpy(packet, &head, sizeof(head));
     memcpy(&packet[sizeof(head)], nonce, 32);
-    fprintf(stderr, "sending request attest packet-len=%ld data-len=%d\n",
-	    sizeof(packet),
-	    ((struct tpmd_packet*)packet)->len);
+    VERBOSE {
+	fprintf(stderr, "sending request attest packet-len=%ld data-len=%d\n",
+		sizeof(packet),
+		((struct tpmd_packet*)packet)->len);
+    }
     rc = sock_send(con, packet, sizeof(packet));
     if (rc < 0) goto err;
     /*
@@ -143,7 +151,7 @@ ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
      */
     rc = sock_recv(con, &head, sizeof(head));
     if (rc < 0) goto err;
-    printf("head.cmd=0x%x head.len=%d qbsize=%ld\n", head.cmd, head.len, qbsize);
+    //printf("head.cmd=0x%x head.len=%d qbsize=%ld\n", head.cmd, head.len, qbsize);
     if (sizeof(buf) < head.len) {
 	fprintf(stderr, "%s: buf area must be enlarged (%ld, %d)\n",
 		__func__, sizeof(buf), head.len);
@@ -180,7 +188,7 @@ ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
 	    } else if (!strncmp(cp, "tpm2_quote", clen)) {
 		s_quote = cbor_bytestring_handle(cpair[i].value);
 		s_sz   = cbor_bytestring_length(cpair[i].value);
-		fprintf(stderr, "s_quote = %p, s_sz = %ld\n", s_quote, s_sz);
+		//fprintf(stderr, "s_quote = %p, s_sz = %ld\n", s_quote, s_sz);
 	    }
 	}
 	/* tpm2 quote is copied */
@@ -212,21 +220,29 @@ ocall_make_tpm2_quote(uint8_t *nonce, int nsize, size_t qbsize,
     int	alg = TPM2_ALG_SHA256;
     uint8_t	pcrs[] = {0, 1, 2, 7, 10};
     int	count = 5;
+    int pid;
     int	rc;
     struct tpm2_quote	t_quote;
     cbor_item_t		*c_tpm2_quote = NULL;
 
-    { /* get self measurement */
-	int pid = getpid();
-	sha256_pid(pid, apphash, &usize);
+    pid = getpid();
+    VERBOSE {
+	fprintf(stderr, "===================================================\n");
+	fprintf(stderr, " Direct TPM2 Device Access (pid=%d)\n", pid);
+	fprintf(stderr, "     %s\n", __func__);
+	fprintf(stderr, "===================================================\n");
     }
 
-    fprintf(stderr, "HOST:%s: enter tpm2_serial=%p qbsize = %ld\n", __func__, tpm2_serial, qbsize);
+    /* get self measurement */
+    sha256_pid(pid, apphash, &usize);
+
     /* app-hash || nonce */
     rc = hash_extend_sha256(apphash, nonce, newhash);
-    dump("@@@@@@@ apphash: ", apphash, 32);
-    dump("@@@@@@@ nonce: ", nonce, 32);
-    dump("@@@@@@@ TPM2 EXTEND(app-hash || nonce): ", newhash, 32);
+    VERBOSE {
+	dump("@@@@@@@ apphash: ", apphash, 32);
+	dump("@@@@@@@ nonce: ", nonce, 32);
+	dump("@@@@@@@ TPM2 EXTEND(app-hash || nonce): ", newhash, 32);
+    }
     rc = make_tpm2_quote(newhash, nsize,
 			 TPM2_ALG_SHA256, pcrs, count, 0x81018001,
 			 &t_quote);
@@ -246,7 +262,9 @@ ocall_make_tpm2_quote(uint8_t *nonce, int nsize, size_t qbsize,
 	    goto err0;
 	}
 	qinfo = &tpm_atst.attested.quote;
-	show_tpm2quote_info("My", qinfo);
+	VERBOSE {
+	    show_tpm2quote_info("My", qinfo);
+	}
     }    
     TLSRA_CBORCALLP(err1, c_tpm2_quote, cbor_new_definite_map(3));
     /* cbor-map: quote */
@@ -266,25 +284,23 @@ ocall_make_tpm2_quote(uint8_t *nonce, int nsize, size_t qbsize,
 	fprintf(stderr, "%s: tpm2_quote buffer size (%ld) must be >= %ld\n", __func__, qbsize, tpm2_qbsz);
 	goto err2;
     }
-    fprintf(stderr, "HOST:%s: tpm2_serial=%p tpm2_qbuf=%p tpm2_qbsz=%ld LINE=%d\n", __func__, tpm2_serial, tpm2_qbuf, tpm2_qbsz, __LINE__);
+    // fprintf(stderr, "HOST:%s: tpm2_serial=%p tpm2_qbuf=%p tpm2_qbsz=%ld LINE=%d\n", __func__, tpm2_serial, tpm2_qbuf, tpm2_qbsz, __LINE__);
     memcpy(tpm2_serial, tpm2_qbuf, tpm2_qbsz);
-    fprintf(stderr, "HOST:%s: LINE=%d\n", __func__, __LINE__);
+    // fprintf(stderr, "HOST:%s: LINE=%d\n", __func__, __LINE__);
     /* free */
     free(tpm2_qbuf);
-    fprintf(stderr, "HOST:%s: LINE=%d\n", __func__, __LINE__);
 err2:
     cbor_decref(&c_tpm2_quote);
-    fprintf(stderr, "HOST:%s: LINE=%d\n", __func__, __LINE__);
 err1:
     /* t_quote must be free ?? */
 err0:
     *sz = tpm2_qbsz;
-    fprintf(stderr, "HOST:%s: LINE=%d\n", __func__, __LINE__);
 }
 
 void
 ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
 {
+    const char	*fname = "ak_pub.pem";
     uint8_t	*s_quote = NULL;
     size_t	s_siz = 0;
     uint8_t	*s_app_hash = NULL;
@@ -296,20 +312,22 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
     int	i;
     int	rc = -1;
 
-    fprintf(stderr, "%s: @@@@@@@@ Enter size = %d code=%d\n",
-	    __func__, size, res.error.code);
+    VERBOSE {
+	fprintf(stderr, "***************************************************\n");
+	fprintf(stderr, "   TPM2 Quote is verified using %s\n", fname);
+	fprintf(stderr, "       %s\n", __func__);
+	fprintf(stderr, "***************************************************\n");
+    }
     if (ctpm2 == NULL || cbor_typeof(ctpm2) != CBOR_TYPE_MAP) {
 	fprintf(stderr, "%s: Received data is not a serialized CBOR map\n", __func__);
 	goto err;
     }
     cpair = cbor_map_handle(ctpm2);
-    fprintf(stderr, "%s: @@@@@@@@ Map size =%ld\n", __func__, cbor_map_size(ctpm2));
     for (i = 0; i < cbor_map_size(ctpm2); i++) {
 	cbor_item_t	*key = cpair[i].key;
 	char		*cp = (char*) cbor_string_handle(key);
 	size_t		clen = cbor_string_length(key);
 
-	fprintf(stderr, "\t@@@@@@@@@@ i(%d)\n", i);
 	if (!key || !cbor_isa_string(key)) continue;
 	if (!strncmp(cp, "quote", clen)) {
 	    /* TPM2 quote */
@@ -318,12 +336,13 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
 	    s_quote = cbor_bytestring_handle(cpair[i].value);
             s_siz   = cbor_bytestring_length(cpair[i].value);
 	    Tss2_MU_TPMS_ATTEST_Unmarshal(s_quote, s_siz, &off, &tpm_atst);
-	    fprintf(stderr, "YIIIIIIIIIIII s_siz(%ld) off(%ld)\n", s_siz, off);
-	    fprintf(stderr, "type = 0x%x (%s)\n", tpm_atst.type,
-		    (tpm_atst.type == TPM2_ST_ATTEST_QUOTE) ?
-		    "QUOTE" : "");
+	    //fprintf(stderr, "type = 0x%x (%s)\n", tpm_atst.type,
+	    //		(tpm_atst.type == TPM2_ST_ATTEST_QUOTE) ?
+	    //		"QUOTE" : "");
 	    qinfo = &tpm_atst.attested.quote;
-	    show_tpm2quote_info("Received", qinfo);
+	    VERBOSE {
+		show_tpm2quote_info("Received", qinfo);
+	    }
 	} else if (!strncmp(cp, "sign", clen)) {
 	    /* sign */
 	    uint8_t	*s_sign = cbor_bytestring_handle(cpair[i].value);
@@ -341,7 +360,6 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
     }
     /* TPM2 AK Signature verification */
     {
-	const char	*fname = "ak_pub.pem";
 	FILE	 *fp;
 	EVP_PKEY *ak_pubkey;
 	if ((fp = fopen(fname, "r")) == NULL) {
@@ -353,8 +371,8 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
 	    fprintf(stderr, "The %s file is not a PEM file.\n", fname);
 	    rc = -1; goto err;
 	}
-	fprintf(stderr, "%s: key type = %s\n",
-		__func__, EVP_PKEY_get0_type_name(ak_pubkey));
+	//fprintf(stderr, "%s: key type = %s\n",
+	//	__func__, EVP_PKEY_get0_type_name(ak_pubkey));
 	rc = verify_tpm2_quote(s_quote, s_siz, &tpm_sig, ak_pubkey);
 	if (rc < 0) {
 	    fprintf(stderr, "%s: Verify Failed\n", __func__);
@@ -396,7 +414,9 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
 	}
 	qinfo_reg = &reg_atst.attested.quote;
 	qinfo_peer = &tpm_atst.attested.quote;
-	show_tpm2quote_info("Registered", qinfo_reg);
+	VERBOSE {
+	    show_tpm2quote_info("Registered", qinfo_reg);
+	}
 	if (comp_pcr_selection(&qinfo_reg->pcrSelect,
 			       &qinfo_peer->pcrSelect) != 0) {
 	    fprintf(stderr, "%s: PCRregs are not identical\n", __func__);
@@ -404,7 +424,7 @@ ocall_verify_tpm2_quote(uint8_t *sertpm2, int size, uint8_t *nonce, int *orc)
 	}
     }
     /* verifying TPM2 data */
-    {
+    VERBOSE {
 	dump("@@@@@@@ nonce: ", nonce, 32);
 	dump("@@@@@@@ TPM2 Data: ", tpm_atst.extraData.buffer, 32);
     }

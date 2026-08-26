@@ -37,6 +37,7 @@ main(int argc, char** argv)
 		 sgx_create_enclave(ENCLAVE_FILE, SGX_DEBUG_FLAG,
 				    &tok, &updated, &eid, NULL),
 		 "sgx_create_enclave failed: 0x%x\n", rc);
+    getoption(argc, argv);
     makeargs(argc, argv, &argpos, &bp, &blen);
     ENCLAVE_CALL(err1, rc,
 		 e_main(eid, &erc, argc, argpos, blen, bp),

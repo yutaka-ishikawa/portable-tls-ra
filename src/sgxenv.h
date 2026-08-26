@@ -40,3 +40,8 @@ extern int	__recvfrom_alias();
 #define O_WRONLY	00000001
 #define O_RDWR		00000002
 #define O_CREAT		00000100
+
+#ifndef VERBOSE
+extern int vflag;
+#define VERBOSE	if(vflag)
+#endif

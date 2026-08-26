@@ -86,6 +86,7 @@ do {				\
 
 
 int	dflag = 0;
+int	vflag = 0;
 
 static void
 usage(const char *cmd)
@@ -323,6 +324,8 @@ main(int argc, char **argv)
 	switch (rc) {
 	case 'd':
 	    dflag = 1; break;
+	case 'v':
+	    vflag = 1; break;
 	}
     }
     tpmddaemon(path);

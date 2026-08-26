@@ -80,8 +80,6 @@ struct timespec;
 } while (0)
 
 
-
-
 static void
 dump(const char *msg, const unsigned char *bf, int size)
 {
@@ -429,7 +427,9 @@ make_cbor_sgx_evidence(uint8_t *quote, size_t quotesz,
 	cbor_decref(&cbor_quote);
     }
     /**/
-    fprintf(stderr, "%s: Using CBOR TAG = %d\n", __func__, ctype);
+    VERBOSE {
+	fprintf(stderr, "%s: Using CBOR TAG = %d\n", __func__, ctype);
+    }
     TLSRA_CBORCALLP(err4, tagged_evidence,  cbor_new_tag(ctype));
     cbor_tag_set_item(tagged_evidence, evidence);
 
@@ -533,25 +533,24 @@ compare_cert_pubkey_against_cbor_claim_hash(const uint8_t* pem_pub_key,
     cbor_item_t* cbor_hash_alg_id = NULL;
     cbor_item_t* cbor_hash_value  = NULL;
 
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
-    dump("Enclave: YI!!!! pub_pub_key(pem):", pem_pub_key, pem_pub_key_len);
+    VERBOSE {
+	fprintf(stderr, "%s:\n", __func__);
+	dump("pub_key(pem):", pem_pub_key, pem_pub_key_len);
+    }
     if (PEM2DER(pem_pub_key, pem_pub_key_len, pk_der, &pk_der_size))
       goto out;
 
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
     if (!cbor_isa_array(cbor_hash_entry) || !cbor_array_is_definite(cbor_hash_entry)
             || cbor_array_size(cbor_hash_entry) != 2) {
         return SGX_ERROR_TLS_X509_INVALID_EXTENSION;
     }
 
-    fprintf(stderr, "%s: LINE=%ds\n", __func__, __LINE__);
     cbor_hash_alg_id = cbor_array_get(cbor_hash_entry, /*index=*/0);
     if (!cbor_hash_alg_id || !cbor_isa_uint(cbor_hash_alg_id)) {
         ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
         goto out;
     }
 
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
     cbor_hash_value = cbor_array_get(cbor_hash_entry, /*index=*/1);
     if (!cbor_hash_value || !cbor_isa_bytestring(cbor_hash_value)
             || !cbor_bytestring_is_definite(cbor_hash_value)) {
@@ -559,7 +558,6 @@ compare_cert_pubkey_against_cbor_claim_hash(const uint8_t* pem_pub_key,
         goto out;
     }
 
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
     uint8_t sha[SHA512_DIGEST_LENGTH]; /* enough to hold SHA-256, -384, or -512 */
     size_t sha_size;
     size_t temp_size;
@@ -572,7 +570,6 @@ compare_cert_pubkey_against_cbor_claim_hash(const uint8_t* pem_pub_key,
         case CBOR_INT_64: hash_alg_id = cbor_get_uint64(cbor_hash_alg_id); break;
         default:          ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION; goto out;
     }
-    fprintf(stderr, "%s: ret = %d LINE=%d\n", __func__, ret, __LINE__);
 
     switch (hash_alg_id) {
         case IANA_NAMED_INFO_HASH_ALG_REGISTRY_SHA256:
@@ -588,15 +585,12 @@ compare_cert_pubkey_against_cbor_claim_hash(const uint8_t* pem_pub_key,
             ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
             goto out;
     }
-    fprintf(stderr, "%s: ret = %d LINE=%d\n", __func__, ret, __LINE__);
     
     temp_size = cbor_bytestring_length(cbor_hash_value);
-    fprintf(stderr, "%s: temp_size = %ld LINE=%d\n", __func__, temp_size, __LINE__);
     if (temp_size != sha_size) {
         ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
         goto out;
     }
-    fprintf(stderr, "%s: ret = %d LINE=%d\n", __func__, ret, __LINE__);
 
     switch (hash_alg_id) {
         case IANA_NAMED_INFO_HASH_ALG_REGISTRY_RESERVED:
@@ -611,17 +605,15 @@ compare_cert_pubkey_against_cbor_claim_hash(const uint8_t* pem_pub_key,
             p_sha = SHA512(pk_der, pk_der_size, sha);
             break;
     }
-    fprintf(stderr, "%s: ret = %d LINE=%d\n", __func__, ret, __LINE__);
     
     if (p_sha == NULL)
     {
         ret = SGX_ERROR_UNEXPECTED;
         goto out;
     }
-    {
-	fprintf(stderr, "%s: sha_size=%ld sha=%p p_sha=%p LINE=%d\n", __func__, sha_size, sha, p_sha, __LINE__);
-	dump("\tcbor_hash_value: ", cbor_bytestring_handle(cbor_hash_value), sha_size);
-	dump("\t\tsha: ", sha, sha_size);
+    VERBOSE {
+	dump("cbor_hash_value: ", cbor_bytestring_handle(cbor_hash_value), sha_size);
+	dump("sha: ", sha, sha_size);
     }
 
     if (memcmp(cbor_bytestring_handle(cbor_hash_value), sha, sha_size)) {
@@ -629,7 +621,6 @@ compare_cert_pubkey_against_cbor_claim_hash(const uint8_t* pem_pub_key,
         goto out;
     }
     ret = SGX_SUCCESS;
-    fprintf(stderr, "%s: ret = %d LINE=%d\n", __func__, ret, __LINE__);
 out:
     if (cbor_hash_alg_id) cbor_decref(&cbor_hash_alg_id);
     if (cbor_hash_value)  cbor_decref(&cbor_hash_value);
@@ -683,7 +674,6 @@ extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
      *		or
      *		TCG_DICE_TAGGED_EVIDENCE_TEE_TPM2_CBOR_TAG
      */
-    fprintf(stderr, "%s: cbor_tag_value = %ld\n", __func__, cbor_tag_value(cbor_tagged_evidence));
     if (!cbor_isa_tag(cbor_tagged_evidence)) {
         ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
         goto out;
@@ -702,13 +692,11 @@ extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
     }
 
     cbor_evidence = cbor_tag_item(cbor_tagged_evidence);
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
     if (!cbor_evidence || !cbor_isa_array(cbor_evidence)
             || !cbor_array_is_definite(cbor_evidence)) {
         ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
         goto out;
     }
-    fprintf(stderr, "%s: LINE=%d\n", __func__, __LINE__);
 
     /* Array size check */
     if (cbor_array_size(cbor_evidence) != 2) {
@@ -781,7 +769,6 @@ extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
      *		"tpm2-quote": tpm2-quote cbor map(3)
      *		"nonce": nonce bstr
      */
-    fprintf(stderr, "%s: YI!!! claims map entry(%ld) LINE=%d\n", __func__, cbor_map_size(cbor_claims_map), __LINE__);
     claims_pairs = cbor_map_handle(cbor_claims_map);
     for (size_t i = 0; i < cbor_map_size(cbor_claims_map); i++) {
         if (!claims_pairs[i].key || !cbor_isa_string(claims_pairs[i].key)
@@ -790,11 +777,9 @@ extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
             ret = SGX_ERROR_TLS_X509_INVALID_EXTENSION;
             goto out;
         }
-	fprintf(stderr, "%s: cborKEY=%s LINE=%d\n", __func__, (char*)cbor_string_handle(claims_pairs[i].key), __LINE__);	
         if (!strncmp((char*)cbor_string_handle(claims_pairs[i].key), "pubkey-hash",
                     cbor_string_length(claims_pairs[i].key))) {
             /* claim { "pubkey-hash" : serialized CBOR array hash-entry (as CBOR bstr) } */
-	    fprintf(stderr, "%s: cbor KEY=\"pubkey-hash\"\n", __func__);
 	    CBOR_CHECK_KEYPARE(out, ret, SGX_ERROR_TLS_X509_INVALID_EXTENSION,
 			       claims_pairs[i].value);
             uint8_t *hash_entry_buf = cbor_bytestring_handle(claims_pairs[i].value);
@@ -806,7 +791,6 @@ extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
                 goto out;
             }
             ret = compare_cert_pubkey_against_cbor_claim_hash(pem_pub_key, pem_pub_key_len, cbor_hash_entry);
-	    fprintf(stderr, "%s: LINE=%d ret=%d\n", __func__, __LINE__, ret);
             if (ret != SGX_SUCCESS) {
                 goto out;
             }
@@ -815,12 +799,13 @@ extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
 	    /* tpm2-quote */
 	    uint8_t	*tpm2q_buf = cbor_bytestring_handle(claims_pairs[i].value);
 	    size_t	bufsz = cbor_bytestring_length(claims_pairs[i].value);
-	    fprintf(stderr, "%s: YI!!!!!! serialized tpm2-quote size = %ld\n", __func__, bufsz);
 	    if (bufsz <= MAXSIZE_SER_TPM2_QUOTE) {
 		*sersz = bufsz;
 		memcpy(out_sertpm2, tpm2q_buf, bufsz);
 	    } else {
-		fprintf(stderr, "%s: received tpm2_quote buffer size is %ld\n", __func__, bufsz);
+		fprintf(stderr,
+			"%s: ERROR. received tpm2_quote buffer size is %ld,"
+			" larger than (MAXSIZE_SER_TPM2_QUOTE\n", __func__, bufsz);
 		*sersz = 0;
 	    }
 	} else if (!strncmp((char*)cbor_string_handle(claims_pairs[i].key),
@@ -828,15 +813,14 @@ extract_cbor_evidence_and_compare_hash(const uint8_t *cbor_evidence_buf,
 			    cbor_string_length(claims_pairs[i].key))) {
 	    uint8_t *nonce_buf = cbor_bytestring_handle(claims_pairs[i].value);
 	    size_t  buf_sz = cbor_bytestring_length(claims_pairs[i].value);
-	    fprintf(stderr, "%s: YI!!!!!! nonce size = %ld\n", __func__, buf_sz);
 	    if (buf_sz != 32) {
-		fprintf(stderr, "%s: nonce size must be 32 byte, but %ld\n", __func__, buf_sz);
+		fprintf(stderr, "%s: ERRROR. nonce size must be 32 byte, but %ld\n",
+			__func__, buf_sz);
 	    } else {
 		memcpy(out_nonce, nonce_buf, 32);
 	    }
 	}
     }
-    fprintf(stderr, "%s: YI!!! SUCEESS LINE=%d\n", __func__, __LINE__);    
     memcpy(out_quote, quote, quote_size);
     *out_quote_size = (uint32_t)quote_size;
     ret = SGX_SUCCESS;
@@ -872,8 +856,6 @@ verify_SGX_quote(const ASN1_OCTET_STRING *oct,
     const uint8_t	*quote = ASN1_STRING_get0_data(oct);
 
     /* quote is extracted */
-    fprintf(stderr, "%s: called size(%d)\n", __func__, sz);
-    fprintf(stderr, "%s: X509_OID_FOR_QUOTE_STRING is not implemented\n", __func__);
     return VERIFIED_QUOTE;
 }
 
@@ -903,7 +885,6 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
     sgx_ql_qe_report_info_t qve_repo_info;
     sgx_ql_qv_result_t	qv_result;
 
-    fprintf(stderr, "%s:%s Enter\n", __FILE__, __func__);
     CERT_DEBUG {
 	fprintf(stderr, "%s: called oct size(%d)\n", __func__, sz);
     }
@@ -954,7 +935,7 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
     case SGX_QL_QV_RESULT_OK:
 	break;
     case SGX_QL_QV_RESULT_OUT_OF_DATE:
-	fprintf(stderr, "Warnining: The level of platform is out of date\n");
+	fprintf(stderr, "SGX Warnining: The level of platform is out of date\n");
 	break;
     case SGX_QL_QV_RESULT_INVALID_SIGNATURE:
     case SGX_QL_QV_RESULT_REVOKED:
@@ -972,15 +953,14 @@ verify_SGX_evidence(const ASN1_OCTET_STRING *oct,
      */
     if (memcmp(nonce, out_nonce, 32) != 0) {
 	fprintf(stderr, "%s: Challenge-Response fails!!\n", __func__);
+	dump("expected nonce: ", nonce, 32);
+	dump("received nonce: ", out_nonce, 32);
 	goto err0;
     }
-    fprintf(stderr, "%s: CBOR type = %d\n", __func__, ctype);
     if (ctype == LOCAL_CBOR_TAG_INTEL_TEE_TPM2_QUOTE) {
 	/* Verifying tpm2_quote */
 	int	orc;
-	fprintf(stderr, "%s: YIIIIIII calling ocall_verify_tpm2_quote\n", __func__);
 	rc = ocall_verify_tpm2_quote(out_sertpm2, sersz, nonce, &orc);
-	fprintf(stderr, "%s: YIIIIIII return rc = %d orc = %d\n", __func__, rc, orc);
 	if (rc != 0 || orc < 0) goto err0;
     }
     CERT_DEBUG {
