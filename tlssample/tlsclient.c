@@ -4,6 +4,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -137,6 +138,7 @@ verify(int ok, X509_STORE_CTX *ctx)
     size_t	sz;
     unsigned char nonce[O_SIZE];
 
+    fprintf(stderr, "%s: Server certificate verification\n", __func__);
     DEBUG {
 	fprintf(stderr, "%s: Server certificate verification\n", __func__);
     }
@@ -173,6 +175,31 @@ verify(int ok, X509_STORE_CTX *ctx)
     return ok;
 }
 
+static void
+getclocktime(int64_t *sec, int64_t *nsec)
+{
+    struct timespec	ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+	*sec = 0;
+	*nsec = 0;
+	return;
+    }
+    *sec  = (int64_t)ts.tv_sec;
+    *nsec = (int64_t)ts.tv_nsec;
+}
+
+static float
+time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
+{
+    int64_t sec = et_sec - st_sec;
+    int64_t nsec = et_nsec - st_nsec;
+    double msec;
+    printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
+    msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
+    return (float) msec;
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -184,7 +211,9 @@ main(int argc, char **argv)
     int		count = DEFAULT_COUNT;
     int		size = DEFAULT_SIZE;
     int		rc;
-
+    int64_t	st_sec, st_nsec, et_sec, et_nsec;
+    float	lat;
+    
     while ((rc = getopt(argc, argv, "c:dD:p:t:vP")) != -1) {
 	switch (rc) {
 	case 'c':
@@ -216,8 +245,13 @@ main(int argc, char **argv)
     /* CA cert (PEM) */
     //SSL_CALL0(err, rc, SSL_CTX_load_verify_locations(ctx, "./CA/my_ca.crt", NULL));
     SSL_CALL0(err, rc, SSL_CTX_load_verify_dir(ctx, "./CA"));
+
+#if 0
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify);
     SSL_CTX_set_verify_depth(ctx, 10);
+#else
+    printf("No server certificate verification !!!!!\n!");
+#endif
     /**/
 
     /*
@@ -231,11 +265,16 @@ main(int argc, char **argv)
 	fprintf(stderr, "???? \n");
 	return -1;
     }
-
     SSL_CALL0(err, rc, SSL_set_fd(ssl, sock));
 
+    getclocktime(&st_sec, &st_nsec);
     SSL_CALL1(err, rc, SSL_connect(ssl));
-    printf("Conntect to %s\n", ipaddr(ip));
+    getclocktime(&et_sec, &et_nsec);
+    printf("****** Conntect to %s\n", ipaddr(ip));
+    lat =  time_to_msec(st_sec, st_nsec, et_sec, et_nsec);
+    printf("start sec:(%ld) nsec(%ld)\n", st_sec, st_nsec);
+    printf("end sec(%ld) nsec(%ld)\n", et_sec, et_nsec);
+    printf("latency(msec): %f\n", lat);
 
     if (pflag) {
 	char	*cp, bb[128];
@@ -243,8 +282,10 @@ main(int argc, char **argv)
 	cp = fgets(bb, 10, stdin);
 	rc = *cp; /* for supressing warning purpose */
     }
-    /* showing nonces of both client and server */
-    myssl_show_nonce(ssl);
+    DEBUG {
+	/* showing nonces of both client and server */
+	myssl_show_nonce(ssl);
+    }
 
     /* main */
     
@@ -259,7 +300,9 @@ main(int argc, char **argv)
 	printf("MYENC TEST\n");
 	mywrite(sock, ssl, buf, size, count); break;
     }
-    myssl_inspect(ssl);
+    DEBUG {
+	myssl_inspect(ssl);
+    }
 
     //myssl_test_encdec(ssl);
 

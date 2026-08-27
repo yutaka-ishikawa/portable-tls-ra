@@ -9,7 +9,7 @@ for i in {1..10}; do
     echo "**************************" >> $SERVER_LOG
     echo "$i" >> $SERVER_LOG
     echo "**************************" >> $SERVER_LOG
-    sudo $SERVER_CMD  -V -r 2 >> $SERVER_LOG 2>&1
+    sudo taskset -c $SERVER_CORE $SERVER_CMD  -V -r 2 >> $SERVER_LOG 2>&1
     sleep 1
 done
 sudo cpupower -c $SERVER_CORE frequency-set -g powersave

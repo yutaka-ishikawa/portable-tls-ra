@@ -10,6 +10,6 @@ for i in {1..10}; do
     echo "**************************" >> $DAEMON_LOG
     echo "$i" >>  $DAEMON_LOG
     echo "**************************" >> $DAEMON_LOG
-    sudo $DAEMON_CMD /tmp/sock-tpmd-daemon 2>> $DAEMON_LOG
+    sudo taskset -c $DAEMON_CORE $DAEMON_CMD /tmp/sock-tpmd-daemon 2>> $DAEMON_LOG
 done
 sudo cpupower -c $DAEMON_CORE frequency-set -g powersave

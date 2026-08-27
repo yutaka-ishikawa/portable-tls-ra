@@ -9,8 +9,8 @@ for i in {1..10}; do
     echo "**************************" >> $CLIENT_LOG
     echo "$i" >> $CLIENT_LOG
     echo "**************************" >> $CLIENT_LOG
-    sudo $CLIENT_CMD  -D /tmp/sock-tpmd-daemon -s 10.102.51.44 \
+    sudo taskset -c $CLIENT_CORE $CLIENT_CMD  -D /tmp/sock-tpmd-daemon -s 10.102.51.44 \
 	 >> $CLIENT_LOG 2>&1
-    sleep 1
+    sleep 3
 done
 sudo cpupower -c $CLIENT_CORE frequency-set -g powersave
