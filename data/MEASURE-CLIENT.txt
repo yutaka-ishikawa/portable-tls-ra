@@ -1,0 +1,351 @@
+Client Core:  10
+**************************
+1
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052681) nsec(228542125)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052682) nsec(456358937)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052681) nsec(228542125)
+end sec(34052682) nsec(456358937)
+sec(1.000000) nsec(227816816.000000)
+latency(msec): 1227.816772
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+2
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052685) nsec(580364284)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052686) nsec(912178823)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052685) nsec(580364284)
+end sec(34052686) nsec(912178823)
+sec(1.000000) nsec(331814528.000000)
+latency(msec): 1331.814575
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+3
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052690) nsec(82977921)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052691) nsec(414903747)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052690) nsec(82977921)
+end sec(34052691) nsec(414903747)
+sec(1.000000) nsec(331925824.000000)
+latency(msec): 1331.925781
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+4
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052694) nsec(582726012)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052695) nsec(913410122)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052694) nsec(582726012)
+end sec(34052695) nsec(913410122)
+sec(1.000000) nsec(330684096.000000)
+latency(msec): 1330.684082
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+5
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052699) nsec(80466414)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052700) nsec(166846551)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052699) nsec(80466414)
+end sec(34052700) nsec(166846551)
+sec(1.000000) nsec(86380136.000000)
+latency(msec): 1086.380127
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+6
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052703) nsec(291235598)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052704) nsec(623504427)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052703) nsec(291235598)
+end sec(34052704) nsec(623504427)
+sec(1.000000) nsec(332268832.000000)
+latency(msec): 1332.268799
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+7
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052707) nsec(792367814)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052709) nsec(64671217)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052707) nsec(792367814)
+end sec(34052709) nsec(64671217)
+sec(2.000000) nsec(-727696576.000000)
+latency(msec): 1272.303345
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+8
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052712) nsec(189324973)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052713) nsec(431570869)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052712) nsec(189324973)
+end sec(34052713) nsec(431570869)
+sec(1.000000) nsec(242245888.000000)
+latency(msec): 1242.245850
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+9
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052716) nsec(561704821)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052717) nsec(649186912)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052716) nsec(561704821)
+end sec(34052717) nsec(649186912)
+sec(1.000000) nsec(87482088.000000)
+latency(msec): 1087.482056
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+10
+**************************
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052720) nsec(820537707)
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (592) (/tmp/sock-tpmd-daemon)
+$     ocall_make_tpm2_quote_via_daemon
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+ocall_getclocktime: CALLED
+ocall_getclocktime: sec(34052722) nsec(150646831)
+***** Client *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+Client Enclave
+e_main: testing printf
+argv[1] = -D
+argv[3] = -s
+Enclave: dflag = 0
+strip = 10.102.51.44
+string ip address = 10.102.51.44
+ip=0x2c33660a port=1100
+verify_cert: Verification of Server attestation is skipping
+Verification success.
+
+TLS-RA mode
+
+***********************************
+****** Conntect to 010.102.051.044 
+***********************************
+start sec:(34052720) nsec(820537707)
+end sec(34052722) nsec(150646831)
+sec(2.000000) nsec(-669890880.000000)
+latency(msec): 1330.109131
+SSL TEST
+SSL_shutdown has been issued 2 times
