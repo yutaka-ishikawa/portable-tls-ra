@@ -627,11 +627,11 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	EVP_PKEY	*pkey;
 	const unsigned char 	*nonce = NULL;
 	int		len;
-	uint8_t		*evidence;
-	size_t		evsz;
+	uint8_t		*evidence = NULL;
+	size_t		evsz = 0;
 
 	VERBOSE {
-	    fprintf(stderr, "%s: TLS-RA mode\n", __func__);
+	    fprintf(stderr, "%s: TLS-RA mode (%d)\n", __func__, rflag);
 	}
 	/* nonce length might be 32B */
 	len = SSL_client_hello_get0_random(ssl, &nonce);
@@ -643,9 +643,13 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	    }
 	}
 	pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
-	rc = make_certificate_evidence(pubkey, pubsz,
-				       (uint8_t*) nonce, len,
-				       &quote, &qsz, &evidence, &evsz);
+	if (rc == 2) {
+	    printf("%s: Skipping creation of Attestation Evidence\n", __func__);
+	} else {
+	    rc = make_certificate_evidence(pubkey, pubsz,
+					   (uint8_t*) nonce, len,
+					   &quote, &qsz, &evidence, &evsz);
+	}
 	if (rc == 0) {
 	    printf("Certificate evidence has been created successfuly on Server.\n");
 	} else {
