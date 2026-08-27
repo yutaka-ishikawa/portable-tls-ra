@@ -614,6 +614,7 @@ on_client_hello(SSL *ssl, int *al, void *arg)
     VERBOSE {
 	fprintf(stderr, "Certificate initializaion rflag=%d\n", rflag);
     }
+    fprintf(stderr, "%s: REMOTE ATTESTATION rflag = %d\n", __func__, rflag);
     /* nonce from client, it is not needed to free nounce */
     if (rflag) {
 	X509		*cert = NULL;
