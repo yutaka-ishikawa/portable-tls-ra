@@ -1,0 +1,171 @@
+Client Core:  10
+**************************
+1
+**************************
+TLS-RA mode
+	nonce = c2:bf:fa:46:a8:22:a7:47:04:fb:0f:7a:85:8b:43:a9:e6:02:ec:2f:42:1c:aa:82:a8:a9:fe:23:27:27:0d:f6:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(115669736.000000)
+start sec:(34058615) nsec(592302088)
+end sec(34058616) nsec(707971826)
+latency(msec): 1115.669678
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+2
+**************************
+TLS-RA mode
+	nonce = 4d:a4:03:3a:fb:06:af:58:ef:2e:b1:fe:96:28:31:52:2a:61:b4:18:70:24:80:e6:f1:30:67:1b:4a:00:f4:92:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(-82105824.000000)
+start sec:(34058619) nsec(729956261)
+end sec(34058620) nsec(647850435)
+latency(msec): 917.894165
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+3
+**************************
+TLS-RA mode
+	nonce = bd:4a:60:f7:bf:e4:cb:ad:d8:23:87:22:93:81:b0:9f:6d:9b:d4:21:c2:7a:44:dd:11:a5:2d:35:92:df:55:4e:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(-382373600.000000)
+start sec:(34058623) nsec(668227180)
+end sec(34058624) nsec(285853568)
+latency(msec): 617.626404
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+4
+**************************
+TLS-RA mode
+	nonce = 4a:4e:b9:5c:38:05:08:04:42:b5:9b:db:89:b9:91:77:7a:fd:65:c2:d1:4c:a5:98:55:c4:ed:c6:f9:ed:2f:ee:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(106524224.000000)
+start sec:(34058627) nsec(304950511)
+end sec(34058628) nsec(411474736)
+latency(msec): 1106.524170
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+5
+**************************
+TLS-RA mode
+	nonce = 87:4a:73:73:02:10:eb:30:61:6c:5c:cf:de:ce:0e:8e:f6:50:9d:5b:bc:a3:95:05:81:20:13:f1:30:d5:2d:e0:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(332756864.000000)
+start sec:(34058631) nsec(432519540)
+end sec(34058632) nsec(765276398)
+latency(msec): 1332.756836
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+6
+**************************
+TLS-RA mode
+	nonce = 86:0a:62:37:ca:aa:16:05:20:b8:41:32:bd:63:89:0f:78:9b:d7:a1:19:0c:1b:b7:97:c3:d0:76:52:b4:1c:41:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(-65181928.000000)
+start sec:(34058635) nsec(787567734)
+end sec(34058636) nsec(722385808)
+latency(msec): 934.818054
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+7
+**************************
+TLS-RA mode
+	nonce = 5a:9f:c6:9d:9f:b6:34:96:be:a4:79:e6:e2:6a:1f:64:50:0a:5d:a5:f9:35:d4:88:ae:2a:f0:1c:a7:b6:da:ba:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(-260542784.000000)
+start sec:(34058639) nsec(742755628)
+end sec(34058640) nsec(482212844)
+latency(msec): 739.457214
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+8
+**************************
+TLS-RA mode
+	nonce = cc:aa:08:fb:35:a0:2f:66:1b:fc:5d:1c:cd:58:38:ac:67:ba:0b:a1:2d:9d:54:ef:dd:fd:c3:8e:7d:51:5f:7c:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(-452350848.000000)
+start sec:(34058643) nsec(503561722)
+end sec(34058644) nsec(51210881)
+latency(msec): 547.649170
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+9
+**************************
+TLS-RA mode
+	nonce = c6:8b:54:25:da:f1:d4:d4:6e:6a:56:01:c2:68:8d:46:0c:40:4d:09:19:da:f6:ba:53:dd:21:2e:c7:39:c4:04:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(328927616.000000)
+start sec:(34058647) nsec(71575026)
+end sec(34058648) nsec(400502641)
+latency(msec): 1328.927612
+SSL TEST
+SSL_shutdown has been issued 2 times
+**************************
+10
+**************************
+TLS-RA mode
+	nonce = 67:c6:2b:80:bf:17:1e:7c:7f:07:2e:ef:07:d2:39:fc:a8:72:02:a4:c9:e4:9c:c7:da:84:a7:f8:61:50:0a:53:
+	Subject: 	Issuer: No server certificate verification !!!!!
+!ip=0x2c33660a port=1100
+CA certificate
+CN=cradsec-srvr_ra,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+CN=cradsec-ca.rois.ac.jp,OU=CRADSEC,O=ROIS,L=Chiyoda,ST=Tokyo,C=JP
+****** Conntect to 010.102.051.044
+sec(1.000000) nsec(-25732876.000000)
+start sec:(34058651) nsec(422444317)
+end sec(34058652) nsec(396711441)
+latency(msec): 974.267151
+SSL TEST
+SSL_shutdown has been issued 2 times
