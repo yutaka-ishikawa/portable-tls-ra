@@ -21,6 +21,7 @@ unsigned char	buf2[BUF_SIZE];
 int	dflag = 0;
 int	tflag = 0;
 int	vflag = 0;
+int	rflag = 0;
 int	atflag = 0;	/* using Attester Daemon */
 char	*dpath;
 char	*server_ipaddr = NULL;
@@ -65,6 +66,37 @@ stripaddr(char *addr)
     return un.ip;
 }
 
+#ifdef SGXENV
+static void
+getclocktime(int64_t *sec, int64_t *nsec)
+{
+    ocall_getclocktime(sec, nsec);
+}
+#else
+static void
+getclocktime(int64_t *sec, int64_t *nsec)
+{
+    struct timespec	ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+	*sec = 0;
+	*nsec = 0;
+	return;
+    }
+    *sec  = (unt64_t)ts.tv_sec;
+    *nsec = (unt64_t)ts.tv_nsec;
+}
+#endif
+
+static float
+time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
+{
+    int64_t sec = et_sec - st_sec;
+    int64_t nsec = et_nsec - st_nsec;
+    double msec;
+    printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
+    msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
+    return (float) msec;
+}
 
 static int
 sslwrite(SSL *ssl, unsigned char *bp, int wsiz, int cnt)
@@ -120,6 +152,8 @@ getoption(int argc, char **argv)
 		atflag = 1;
 		dpath = strndup(argv[i+1], 108); i++;
 		break;
+	    case 'r': /* remote attestation */
+		rflag = atol(argv[i+1]); i++; break;
 	    case 's': /* server ip */
 		server_ipaddr = strndup(argv[i+1], 80); i++;
 		break;
@@ -148,6 +182,8 @@ main(int argc, char **argv)
     uint16_t	port = DEFAULT_TCP_PORT;
     int		count = DEFAULT_COUNT;
     int		size = DEFAULT_SIZE;
+    int64_t	st_sec, st_nsec, et_sec, et_nsec;
+    float	lat;
     int		rc;
 
     getoption(argc, argv);
@@ -179,10 +215,17 @@ main(int argc, char **argv)
 
     TLSRA_SSLCALL(err, rc, SSL_set_fd(ssl, sock));
 
+    getclocktime(&st_sec, &st_nsec);
     TLSRA_SSLCALL(err, rc, SSL_connect(ssl));
+    getclocktime(&et_sec, &et_nsec);
+    
     printf("***********************************\n");
     printf("****** Conntect to %s \n", ipaddr(ip));
     printf("***********************************\n");
+    printf("start sec:(%d) nsec(%d)\n", st_sec, st_nsec);
+    printf("end sec(%d) nsec(%d)\n", et_sec, et_nsec);
+    lat =  time_to_msec(st_sec, st_nsec, et_sec, et_nsec);
+    printf("latency(msec): %f\n", lat);
 
     /* showing nonces of both client and server */
     VERBOSE {

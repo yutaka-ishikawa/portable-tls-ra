@@ -724,8 +724,6 @@ mysslra_verify(int ok, X509 *x509, unsigned char *nonce)
 /*
  * Server certificate verification
  */
-#define WHICH_SERVERSIDE	0
-#define WHICH_CLIENTSIDE	1
 static int
 verify(int ok, X509_STORE_CTX *ctx, int which)
 {
@@ -760,7 +758,7 @@ verify(int ok, X509_STORE_CTX *ctx, int which)
 	} else {
 	    sz = SSL_get_client_random(ssl, nonce, 32);
 	}
-	if (verify_cert(x509, nonce) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
+	if (verify_cert(x509, nonce, which) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
 	    fprintf(stderr, "Verification success.\n");
 	    ok = 1;
 	} else {

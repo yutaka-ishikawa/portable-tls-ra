@@ -69,7 +69,9 @@ extern int	make_certificate_evidence(uint8_t *pubkey, int pubksz,
 extern int	make_x509cert(X509 **px509, EVP_PKEY *pkey,
 			      uint8_t *quote, int qtsz,
 			      uint8_t *evidence, int evsz);
-extern int	verify_cert(X509 *x509, uint8_t *nonce);
+#define WHICH_SERVERSIDE	0
+#define WHICH_CLIENTSIDE	1
+extern int	verify_cert(X509 *x509, uint8_t *nonce, int which);
 
 
 #define CERT_DEBUG	if (cert_dflag)

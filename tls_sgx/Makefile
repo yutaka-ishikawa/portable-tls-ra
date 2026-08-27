@@ -102,6 +102,9 @@ else
   SGX_SIGN_MODE := prerelease
 endif
 
+## YI
+ENCLAVE_DEFS += -DSGXENV
+
 # ==== Files ====
 EDL := Enclave/Enclave.edl
 TRUSTED_SERVER_SRCS := Enclave/enclave_server.c Enclave/libtlsra.c Enclave/libsock.c Enclave/tlsra_server.c Enclave/Enclave_t.c Enclave/libcert.c Enclave/libintel.c Enclave/libtpm2.c Enclave/libtpm2.c
@@ -217,10 +220,16 @@ trace-run-tlsra_server:
 run-tlsra_client:
 	../tpm2/measure -o ./measure_client.bin ./host_client
 	./host_client -d
+# for evaluation
+run-tlsra_client-D-remote:
+	../tpm2/measure -o ./measure_client.bin ./host_client
+	scp ./measure_client.bin 10.102.51.44:/home/ishikawa/work/portable-tls-ra/tls_sgx/
+	sudo ./host_client -D /tmp/sock-tpmd-daemon -s 10.102.51.44
+
 run-tlsra_client-D:
 	../tpm2/measure -o ./measure_client.bin ./host_client
 #	./host_client -d -D /tmp/sock-tpmd-daemon
-	./host_client -D /tmp/sock-tpmd-daemon
+	sudo ./host_client -D /tmp/sock-tpmd-daemon
 trace-run-tlsra_client:
 	strace -f -o ./trace-client.txt ./host_client -d -O
 #

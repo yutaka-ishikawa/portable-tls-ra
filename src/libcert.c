@@ -580,7 +580,7 @@ err0:
  * nor X509_STORE_set_flags() calls
  */
 int
-verify_cert(X509 *x509, uint8_t *nonce)
+verify_cert(X509 *x509, uint8_t *nonce, int which)
 {
     X509_STORE_CTX	*ctx = NULL;
     X509_STORE		*store = NULL;
@@ -628,7 +628,16 @@ verify_cert(X509 *x509, uint8_t *nonce)
     X509_STORE_CTX_free(ctx);
     X509_STORE_free(store);
     /* Checking quote: system dependent */
-    rc = verify_contents(x509, nonce);
+    if (which == WHICH_CLIENTSIDE) {
+	/* FIXME: Needs to select policy via runtime option */
+	fprintf(stderr, "%s: Verification of Server attestation is skipping\n", __func__);
+	rc = VERIFIED_EVIDENCE;
+    } else {
+	/*
+	 * Server verifies the attestation evidence contained in client certifate
+	 */
+	rc = verify_contents(x509, nonce);
+    }
 err:
     return rc;
 }

@@ -56,7 +56,7 @@ getoption(int argc, char **argv)
 	    case 'p': if (i > argc) goto err;
 		port = atol(argv[i+1]); i++; break;
 	    case 'r': /* remote attestation */
-		rflag = 1; break;
+		rflag = atol(argv[i+1]); i++; break;
 	    case 't': if (i > argc) goto err;
 		tflag = atol(argv[i+1]); i++; break;
 	    case 'v':

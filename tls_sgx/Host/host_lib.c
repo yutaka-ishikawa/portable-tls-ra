@@ -269,7 +269,8 @@ getoption(int argc, char **argv)
 	    case 'p': if (i > argc) goto err;
 		port = atol(argv[i+1]); i++; break;
 	    case 'r': /* remote attestation */
-		rflag = 1; break;
+		if (i > argc) goto err;
+		rflag = atol(argv[i+1]); i++; break;
 	    case 't': if (i > argc) goto err;
 		tflag = atol(argv[i+1]); i++; break;
 	    case 'v':
@@ -287,6 +288,22 @@ err:
     return -1;
 }
 
+void
+ocall_getclocktime(int64_t *sec, int64_t *nsec)
+{
+    struct timespec ts;
+
+    fprintf(stderr, "%s: CALLED\n", __func__);
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+	perror("ocall_getclocktime");
+	*sec = 0;
+	*nsec = 0;
+	return;
+    }
+    *sec  = (int64_t)ts.tv_sec;
+    *nsec = (int64_t)ts.tv_nsec;
+    fprintf(stderr, "%s: sec(%d) nsec(%d)\n", __func__, *sec, *nsec);
+}
 
 /*
  * The following functions are defined in the following files:

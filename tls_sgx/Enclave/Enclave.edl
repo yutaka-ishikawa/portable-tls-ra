@@ -73,5 +73,6 @@ trusted {
 				   int sz,
 				   [in, size=32] uint8_t *nonce,
 				   [out] int *rc);
+	void ocall_getclocktime([out] int64_t *sec, [out] int64_t *nsec);
     };
 };

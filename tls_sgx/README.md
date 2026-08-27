@@ -1,3 +1,12 @@
+Setup PCCS
+0) sudo apt install sgx-dcap-pccs
+1) /etc/sgx_default_qcnl.conf
+	 "use_secure_cert": false
+2)
+sudo systemctl status pccs
+3)
+curl -k https://localhost:8081/sgx/certification/v4/rootcacrl
+
 #
 #
 1) If you have not cloned this repository with "--recursive option", then
@@ -51,6 +60,8 @@ $ sudo apt install libsgx-dcap-ql libsgx-dcap-ql-dev
 
 
 #
+
+
 
 shell4: cd tpm2/; make run-daemon
 
