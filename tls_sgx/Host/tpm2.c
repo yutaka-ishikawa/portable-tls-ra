@@ -130,7 +130,6 @@ ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
     fprintf(stderr, "$ Talking to Atester Daemon (%d) (%s)\n", nsize, dpath);
     fprintf(stderr, "$     %s\n", __func__);
     fprintf(stderr, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
-
     if (nsize > 1024) {
 	fprintf(stderr, "sealed nonce size must be smaller than 1024\n");
 	abort();
@@ -148,14 +147,13 @@ ocall_make_tpm2_quote_via_daemon(uint8_t *nonce, int nsize, size_t qbsize,
 		sizeof(packet),
 		((struct tpmd_packet*)packet)->len);
     }
-    rc = sock_send(con, packet, sizeof(packet));
+    rc = sock_send(con, packet, sizeof(struct tpmd_packet) + nsize);
     if (rc < 0) goto err;
     /*
      * Receive Attest from daemon
      */
     rc = sock_recv(con, &head, sizeof(head));
     if (rc < 0) goto err;
-    //printf("head.cmd=0x%x head.len=%d qbsize=%ld\n", head.cmd, head.len, qbsize);
     if (sizeof(buf) < head.len) {
 	fprintf(stderr, "%s: buf area must be enlarged (%ld, %d)\n",
 		__func__, sizeof(buf), head.len);

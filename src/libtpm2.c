@@ -200,10 +200,15 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
 		fprintf(stderr, "%s: ocall_make_tpm2_quote_via_daemon(...)\n",__func__);
 	    }
 	    {
+		extern sgx_status_t
+		    myseal(uint32_t len_dat, const uint8_t *datp,
+			   uint32_t len_out, uint8_t *outp, uint32_t *encsz);
+		sgx_status_t
+		    myunseal(uint32_t len_dat, const uint8_t *datp,
+			     uint32_t len_out, uint8_t *outp, uint32_t *plsz);
 		char	buf[1024];
-		uint32_t	rsz;
-		ecall_seal(32, nonce, 1024, buf, &rsz);
-		fprintf(stderr, "%s: sealing data size(%d)!!!\n",__func__, rsz);
+		uint32_t	rsz = 0;
+		myseal(32, nonce, 1024, buf, &rsz);
 		ocall_make_tpm2_quote_via_daemon(buf, rsz, sizeof(tpm2_qbuf),
 						 tpm2_qbuf, &tpm2_qbsz, dpath);
 	    }
@@ -353,8 +358,8 @@ err0:
  */
 #include <sgx_tseal.h>
 sgx_status_t
-ecall_seal(uint32_t len_dat, const uint8_t *datp,
-	   uint32_t len_out, uint8_t *outp, uint32_t *encsz)
+myseal(uint32_t len_dat, const uint8_t *datp,
+       uint32_t len_out, uint8_t *outp, uint32_t *encsz)
 {
     uint32_t	enclen;
     sgx_sealed_data_t 	*encbufp;
@@ -363,7 +368,6 @@ ecall_seal(uint32_t len_dat, const uint8_t *datp,
     //printf("%s: len_dat=%d len_out=%d\n", __func__, len_dat, len_out);
     *encsz = 0;
     enclen = sgx_calc_sealed_data_size(0, len_dat);
-    printf("%s enclen=%d\n", __func__, enclen);
     encbufp = (sgx_sealed_data_t*) malloc(enclen);
     if(encbufp == NULL) {
         return SGX_ERROR_OUT_OF_MEMORY;
@@ -378,8 +382,8 @@ ecall_seal(uint32_t len_dat, const uint8_t *datp,
 }
 
 sgx_status_t
-ecall_unseal(uint32_t len_dat, const uint8_t *datp,
-	     uint32_t len_out, uint8_t *outp, uint32_t *plsz)
+myunseal(uint32_t len_dat, const uint8_t *datp,
+	 uint32_t len_out, uint8_t *outp, uint32_t *plsz)
 {
     uint32_t	dlen;
     uint8_t	*decdata;

@@ -69,8 +69,9 @@ Enclave/Enclave_t.o: Enclave/Enclave_t.c Enclave/Enclave_t.h
 enclave.so: Enclave/enclave.o Enclave/Enclave_t.o
 	$(CC) -o $@ $^ $(ENCL_LINK)
 # Making Sign Key
-Enclave/enclave_private.pem:
-	openssl genrsa -3 -out $@ 3072
+#  Must be copied from tlsra
+##Enclave/enclave_private.pem:
+##	openssl genrsa -3 -out $@ 3072
 
 # Signing
 Enclave/enclave.signed.so: enclave.so Enclave/Enclave.config.xml Enclave/enclave_private.pem

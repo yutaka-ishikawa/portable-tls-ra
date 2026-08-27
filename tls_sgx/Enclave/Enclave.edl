@@ -27,6 +27,7 @@ trusted {
             [in, count=eargc] int	*eargpos,
 	    int				eblen,
 	    [in, size=eblen] char	*ebuf);
+    /*
 	public sgx_status_t ecall_seal(uint32_t len_dat,
 				       [in, size=len_dat] const uint8_t *datp,
 				       uint32_t len_out,
@@ -37,7 +38,7 @@ trusted {
 				       uint32_t len_out,
 				       [out, size=len_out] uint8_t *outp,
 				       [out] uint32_t *plsz);
-
+	*/
     };
     untrusted {
         void ocall_time([out] uint64_t *timep);
@@ -59,7 +60,7 @@ trusted {
   	void ocall_sock_connect(uint32_t ip, uint16_t port, [out] int *psock);
 	void ocall_sock_serveropen(uint32_t ip, uint16_t port, [out] int *psock);
 	void ocall_sock_accept(int sock, [out] int *rc);
-	void ocall_make_tpm2_quote_via_daemon([in, size=32] uint8_t *nonce, int nsize,
+	void ocall_make_tpm2_quote_via_daemon([in, size=nsize] uint8_t *nonce, int nsize,
 				     	      size_t qbsize,
 					      [out, size=qbsize] uint8_t *tpm2_qbuf,
 					      [out] size_t *sz,

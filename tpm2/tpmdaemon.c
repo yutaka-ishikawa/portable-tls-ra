@@ -253,8 +253,10 @@ reply_attest(int con, uint8_t *nonce, uint8_t *tpm2_quote, size_t size,
     head.aux = TPMD_AUX_OK;
     head.len = sendsz;
     printf("%s: sending reply of attest, len=%ld\n", __func__, sendsz);
+    printf("%s: sending header\n", __func__);
     LIBCALLmsg(err2, rc, sock_send(con, &head, sizeof(head)),
 	       "%s: send error\n", __func__);
+    printf("%s: sending data (%ld)\n", __func__, sendsz);
     LIBCALLmsg(err2, rc, sock_send(con, sendbufp, sendsz),
 	       "%s: send error\n", __func__);
     /**/
@@ -323,9 +325,10 @@ tpmddaemon(const char *path)
 		{
 		    uint8_t	unsealed[32];
 		    uint32_t	sz;
-		    ecall_unseal(eid, &st, 32, &pktp->data[0],
-				 pktp->len, unsealed, &sz);
-		    dump("nonce: ", &pktp->data[0], pktp->len);
+		    dump("sealed: ", &pktp->data[0], pktp->len);
+		    ecall_unseal(eid, &st, pktp->len, &pktp->data[0],
+				 32, unsealed, &sz);
+		    dump("nonce: ", unsealed, 32);
 		    make_tpm2_quote_with_pid(unsealed, 32,
 					     sizeof(buf), buf, &size,
 					     apphash, usize, pid);

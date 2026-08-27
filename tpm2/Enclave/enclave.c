@@ -53,9 +53,19 @@ ecall_seal(uint32_t len_dat, const uint8_t *datp,
         return SGX_ERROR_OUT_OF_MEMORY;
     }
     err = sgx_seal_data(0, NULL, len_dat, datp, enclen, encbufp);
+    #if 0
+    {
+	sgx_attributes_t attr_mask = SGX_ATTRIBUTES_DEFAULT_MASK;
+	err = sgx_seal_data_ex(SGX_KEYPOLICY_MRSIGNER, attr_mask,
+			       TSEAL_DEFAULT_MISCMASK, 0, NULL,
+			       len_dat, datp, enclen, encbufp);
+    }
+#endif
     if (err == SGX_SUCCESS)  {
         memcpy(outp, encbufp, enclen);
 	*encsz = enclen;
+    } else {
+	printf("%s: ERROR!!!!!! err(%d)\n", __func__, err);
     }
     free(encbufp);
     return err;
@@ -79,6 +89,7 @@ ecall_unseal(uint32_t len_dat, const uint8_t *datp,
     }
     st = sgx_unseal_data((const sgx_sealed_data_t *) datp,
 			 NULL, 0, decdata, &dlen);
+    printf("%s: dlen = %d\n", __func__, dlen);
     if (st != SGX_SUCCESS) goto err0;
     memcpy(outp, decdata, dlen);
     *plsz = dlen;
