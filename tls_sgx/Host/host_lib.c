@@ -302,7 +302,7 @@ ocall_getclocktime(int64_t *sec, int64_t *nsec)
     }
     *sec  = (int64_t)ts.tv_sec;
     *nsec = (int64_t)ts.tv_nsec;
-    fprintf(stderr, "%s: sec(%d) nsec(%d)\n", __func__, *sec, *nsec);
+    fprintf(stderr, "%s: sec(%ld) nsec(%ld)\n", __func__, *sec, *nsec);
 }
 
 /*
