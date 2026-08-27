@@ -1,7 +1,7 @@
 #!/bin/bash
 SERVER_CORE=12
 SERVER_LOG=../data/MEASURE-NORMAL-SERVER.txt
-SERVER_CMD=../tls_sgx/host_server
+SERVER_CMD=./tlsserver
 
 echo "Server Core: " $SERVER_CORE > $SERVER_LOG
 sudo cpupower -c $SERVER_CORE frequency-set -g performance
