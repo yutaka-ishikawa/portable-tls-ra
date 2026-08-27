@@ -1,0 +1,211 @@
+Server Core:  12
+**************************
+1
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+2
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+3
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+4
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+5
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+6
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+7
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+8
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+9
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
+**************************
+10
+**************************
+***** Server *****
+(/home/ishikawa/work/portable-tls-ra/tls_sgx)
+getenv: called
+main: Skipping SSL library init in SGX
+TLS-RA mode
+*********************************************
+****** NOW Listning requests at port = 1100
+*********************************************
+on_client_hello: REMOTE ATTESTATION rflag = 2
+Certificate evidence has been created successfuly on Server.
+SGX Warnining: The level of platform is out of date
+
+Verification success.
+
+***** SSL TEST *****
+combuf_vryfy: Correct message is received (1024)
+Success:
+SSL_shutdown has been issued 2 times
