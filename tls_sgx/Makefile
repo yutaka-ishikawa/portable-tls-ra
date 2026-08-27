@@ -211,7 +211,8 @@ run-tlsra_server:
 #	./host -p 10101 -V -v -r
 #	./host_server -V -r
 	../tpm2/measure -o ./measure_server.bin ./host_server
-	./host_server -V -r
+# -r 2 means skipping server side attestation evidence creation
+	./host_server -V -r 2
 run-tlsra_server-D:
 	../tpm2/measure -o ./measure_server.bin ./host_server
 	./host_server -V -v -r -D /tmp/sock-tpmd-daemon
