@@ -1,3 +1,4 @@
+#!/bin/bash
 SERVER_CORE=12
 SERVER_LOG=../data/MEASURE-NORMAL-SERVER.txt
 SERVER_CMD=../tls_sgx/host_server
