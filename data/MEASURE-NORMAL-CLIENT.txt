@@ -4,15 +4,15 @@ Client Core:  10
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2962008.000000)
-start sec:(34107835) nsec(869642517)
-end sec(34107835) nsec(872604525)
-latency(msec): 2.962008
+sec(0.000000) nsec(2774177.000000)
+start sec:(34109336) nsec(336091795)
+end sec(34109336) nsec(338865972)
+latency(msec): 2.774177
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -20,15 +20,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2147263.000000)
-start sec:(34107838) nsec(888789747)
-end sec(34107838) nsec(890937010)
-latency(msec): 2.147263
+sec(0.000000) nsec(2584135.000000)
+start sec:(34109339) nsec(359369961)
+end sec(34109339) nsec(361954096)
+latency(msec): 2.584135
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -36,15 +36,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2155458.000000)
-start sec:(34107841) nsec(911254990)
-end sec(34107841) nsec(913410448)
-latency(msec): 2.155458
+sec(0.000000) nsec(2465996.000000)
+start sec:(34109342) nsec(380055943)
+end sec(34109342) nsec(382521939)
+latency(msec): 2.465996
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -52,15 +52,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(1951396.000000)
-start sec:(34107844) nsec(931132335)
-end sec(34107844) nsec(933083731)
-latency(msec): 1.951396
+sec(0.000000) nsec(2606082.000000)
+start sec:(34109345) nsec(403288031)
+end sec(34109345) nsec(405894113)
+latency(msec): 2.606082
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -68,15 +68,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2171023.000000)
-start sec:(34107847) nsec(950400218)
-end sec(34107847) nsec(952571241)
-latency(msec): 2.171023
+sec(0.000000) nsec(3026273.000000)
+start sec:(34109348) nsec(424477047)
+end sec(34109348) nsec(427503320)
+latency(msec): 3.026273
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -84,15 +84,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(1984447.000000)
-start sec:(34107850) nsec(970825699)
-end sec(34107850) nsec(972810146)
-latency(msec): 1.984447
+sec(0.000000) nsec(2740930.000000)
+start sec:(34109351) nsec(448842917)
+end sec(34109351) nsec(451583847)
+latency(msec): 2.740930
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -100,15 +100,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2475234.000000)
-start sec:(34107853) nsec(991751626)
-end sec(34107853) nsec(994226860)
-latency(msec): 2.475234
+sec(0.000000) nsec(2795159.000000)
+start sec:(34109354) nsec(470870600)
+end sec(34109354) nsec(473665759)
+latency(msec): 2.795159
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -116,15 +116,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2218674.000000)
-start sec:(34107857) nsec(12396515)
-end sec(34107857) nsec(14615189)
-latency(msec): 2.218674
+sec(0.000000) nsec(2852837.000000)
+start sec:(34109357) nsec(493640958)
+end sec(34109357) nsec(496493795)
+latency(msec): 2.852837
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -132,15 +132,15 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2183228.000000)
-start sec:(34107860) nsec(33761832)
-end sec(34107860) nsec(35945060)
-latency(msec): 2.183228
+sec(0.000000) nsec(2596180.000000)
+start sec:(34109360) nsec(514579286)
+end sec(34109360) nsec(517175466)
+latency(msec): 2.596180
 SSL TEST
 SSL_shutdown has been issued 2 times
 **************************
@@ -148,14 +148,14 @@ SSL_shutdown has been issued 2 times
 **************************
 -a option is included.
 The client certificate is used with a registered key pair file.
-Client CA is registered.
+Cient Certificate (self-signed) is registered.
 -b option is not included.
 No server certificate verification !!!!!
 !ip=0x2c33660a port=1100
 ****** Conntect to 010.102.051.044
-sec(0.000000) nsec(2429343.000000)
-start sec:(34107863) nsec(55483927)
-end sec(34107863) nsec(57913270)
-latency(msec): 2.429343
+sec(0.000000) nsec(2851105.000000)
+start sec:(34109363) nsec(537373738)
+end sec(34109363) nsec(540224843)
+latency(msec): 2.851105
 SSL TEST
 SSL_shutdown has been issued 2 times
