@@ -23,6 +23,8 @@ int	dflag = 0;
 int	tflag = 0;
 int	vflag = 0;
 int	pflag = 0;
+int	aflag = 0;
+int	bflag = 0;
 
 static int
 on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
@@ -214,8 +216,10 @@ main(int argc, char **argv)
     int64_t	st_sec, st_nsec, et_sec, et_nsec;
     float	lat;
     
-    while ((rc = getopt(argc, argv, "c:dD:p:t:vP")) != -1) {
+    while ((rc = getopt(argc, argv, "abc:dD:p:t:vP")) != -1) {
 	switch (rc) {
+	case 'a': aflag = 1; break;
+	case 'b': bflag = 1; break;
 	case 'c':
 	    count = atol(optarg); break;
 	case 'd':
@@ -239,21 +243,32 @@ main(int argc, char **argv)
     /*
      * Handling Handshake during client hello message
      */
-    SSL_CTX_set_client_cert_cb(ctx, on_client_cert);
-
-    /* Require Server certificate and verification*/
-    /* CA cert (PEM) */
-    //SSL_CALL0(err, rc, SSL_CTX_load_verify_locations(ctx, "./CA/my_ca.crt", NULL));
-    SSL_CALL0(err, rc, SSL_CTX_load_verify_dir(ctx, "./CA"));
-
-#if 0
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify);
-    SSL_CTX_set_verify_depth(ctx, 10);
-#else
-    printf("No server certificate verification !!!!!\n!");
-#endif
-    /**/
-
+    if (aflag) {
+	printf("-a option is included.\n");
+	printf("The client certificate is used with a registered key pair file.\n");
+	printf("Client CA is registered.\n");
+	SSL_CALL0(err, rc, SSL_CTX_load_verify_locations(ctx, "./CA/my_ca.crt", NULL));
+	SSL_CALL0(err, rc, SSL_CTX_load_verify_dir(ctx, "./CA"));
+    } else {
+	printf("-a option is not included.\n");
+	printf("The client certificate is dynamically generated\n");
+	printf("when the server requests client during the TLS handshake.\n");
+	SSL_CTX_set_client_cert_cb(ctx, on_client_cert);
+    }
+    if (bflag) {
+	printf("-b option is included.\n");
+	printf("Require Server certificate.\n");
+	/* CA cert (PEM) */
+	//SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify);
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+	SSL_CTX_set_verify_depth(ctx, 10);
+	printf("\t server.crt, self-signed, is registered.\n");
+	rc = SSL_CTX_load_verify_locations(ctx, "server.crt", NULL);
+	if (rc != 1) ERR_print_errors_fp(stderr);
+    } else {
+	printf("-b option is not included.\n");
+	printf("No server certificate verification !!!!!\n!");
+    }
     /*
      * Now SSL is now created from SSL_CTX.
      */

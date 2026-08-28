@@ -9,7 +9,7 @@ for i in {1..10}; do
     echo "**************************" >> $CLIENT_LOG
     echo "$i" >> $CLIENT_LOG
     echo "**************************" >> $CLIENT_LOG
-    sudo taskset -c $CLIENT_CORE $CLIENT_CMD  -D 10.102.51.44 -p 1100 \
+    sudo taskset -c $CLIENT_CORE $CLIENT_CMD -a -D 10.102.51.44 -p 1100 \
 	 >> $CLIENT_LOG 2>&1
     sleep 3
 done
