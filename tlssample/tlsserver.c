@@ -37,13 +37,26 @@ verify(int ok, X509_STORE_CTX *ctx)
     X509	*x509 = X509_STORE_CTX_get_current_cert(ctx);
     SSL		*ssl = X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());;
     size_t	sz;
+    int depth = X509_STORE_CTX_get_error_depth(ctx);
+    int err = X509_STORE_CTX_get_error(ctx);
 
     if (x509 == NULL) {
 	fprintf(stderr, "%s: Client Cert verificaion fails.\n", __func__);
 	return ok;
     }
-    printf("%s Subject: ", __func__); myssl_show_subject_name(x509);
-    printf("%s Issuer: ", __func__); myssl_show_issuer_name(x509);
+
+    if (ok == 1) {
+	return ok;
+    }
+    /* ok == 0 */
+    if (depth == 0 &&
+        err == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT) {
+	ok = 1;
+    }
+    DEBUG {
+	printf("%s Subject: ", __func__); myssl_show_subject_name(x509);
+	printf("%s Issuer: ", __func__); myssl_show_issuer_name(x509);
+    }
     sz = SSL_get_server_random(ssl, nonce, O_SIZE);
     ok = mysslra_verify(ok, x509, nonce);
     if (!ok) {
@@ -73,10 +86,12 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	const unsigned char *nonce = NULL;
 	/* nonce from client */
 	len = SSL_client_hello_get0_random(ssl, &nonce);
-	if (len > 0) {
-	    dump("\tnonce = ", nonce, len);
-	} else {
-	    printf("\tNo nonce has been received\n");
+	DEBUG {
+	    if (len > 0) {
+		dump("\tnonce = ", nonce, len);
+	    } else {
+		printf("\tNo nonce has been received\n");
+	    }
 	}
 	memset(report, 0, sizeof(report));
 	memcpy(report, nonce, len > 512 ? 512 : len);
@@ -92,11 +107,14 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	    fprintf(stderr, "Cannot generate certificate\n");
 	    exit(-1);
 	}
-	printf("Subject: "); myssl_show_subject_name(x509);
-	printf("Issuer: "); myssl_show_issuer_name(x509);
+	DEBUG {
+	    printf("Subject: "); myssl_show_subject_name(x509);
+	    printf("Issuer: "); myssl_show_issuer_name(x509);
+	}
 	SSL_CALL1(err3, rc, SSL_use_certificate(ssl, x509));
 	SSL_CALL1(err3, rc, SSL_use_PrivateKey(ssl, pkey));
     } else {
+	printf("The server Certificate is registered.\n");
 	SSL_CALL1(err3, rc, SSL_use_certificate_file(ssl, "server.crt", SSL_FILETYPE_PEM));
 	SSL_CALL1(err3, rc, SSL_use_PrivateKey_file(ssl, "server.key", SSL_FILETYPE_PEM));
     }
@@ -232,10 +250,6 @@ main(int argc, char **argv)
     SSL_library_init();
     SSL_CALL0(err3, ctx, SSL_CTX_new(SSLv23_server_method()));
     /*
-     * Handling Handshake during client hello message
-     */
-    SSL_CTX_set_client_hello_cb(ctx, on_client_hello, NULL);
-    /*
      * Client Certificate
      *		Client CA file:
      *		  $ cat caA.pem caB.pem caC.pem > truststore.pem
@@ -245,8 +259,12 @@ main(int argc, char **argv)
 	STACK_OF(X509_NAME) *calist;
 	printf("Request Client Certificate !!!\n");
 	SSL_CALL0(err4, calist, SSL_load_client_CA_file("CA/my_ca.crt"));
-	SSL_CTX_set_client_CA_list(ctx, calist);	
+	SSL_CTX_set_client_CA_list(ctx, calist);
+#if 0
 	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, verify);
+#else
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+#endif
 	SSL_CTX_set_verify_depth(ctx, 10);
 
     }
@@ -258,9 +276,23 @@ main(int argc, char **argv)
 	int priority = 0;
 	const char *lst = SSL_get_cipher_list(ssl, priority);
 	const char *ver = SSL_get_version(ssl);
-
-	printf("cipher_list: %s\n", lst == NULL ? "No cipers" : lst);
-	printf("Server Version: %s\n", ver);
+	DEBUG {
+	    printf("cipher_list: %s\n", lst == NULL ? "No cipers" : lst);
+	    printf("Server Version: %s\n", ver);
+	}
+    }
+    /*
+     * Handling Handshake during client hello message
+     */
+    if (rflag) {
+	SSL_CTX_set_client_hello_cb(ctx, on_client_hello, NULL);
+    } else {
+	printf("The server Certificate is registered.\n");
+	SSL_CALL1(err3, rc, SSL_use_certificate_file(ssl, "server.crt", SSL_FILETYPE_PEM));
+	SSL_CALL1(err3, rc, SSL_use_PrivateKey_file(ssl, "server.key", SSL_FILETYPE_PEM));
+	printf("The Client Certificate is registered.\n");
+        rc = SSL_CTX_load_verify_locations(ctx, "./CA/my_ca.crt", NULL);
+        if (rc != 1) ERR_print_errors_fp(stderr);  
     }
 
     /* socket listen */
@@ -279,14 +311,15 @@ main(int argc, char **argv)
     printf("Going to accept\n");
     SSL_CALL1(err, rc, SSL_accept(ssl));
 
-    printf("Conntected\n");
+    printf("************* Conntected *************\n");
     printf("Server Version: %s\n", SSL_get_version(ssl));
-    /* showing nonces of both client and server */
-    myssl_show_nonce(ssl);
-
-    {
-	X509	*cert = SSL_get_peer_certificate(ssl);
-	printf("cert = %p\n", cert);
+    DEBUG {
+	/* showing nonces of both client and server */
+	myssl_show_nonce(ssl);
+	{
+	    X509	*cert = SSL_get_peer_certificate(ssl);
+	    printf("cert = %p\n", cert);
+	}
     }
 
     switch (tflag) {
@@ -305,7 +338,9 @@ main(int argc, char **argv)
     if (error == 0) {
 	printf("Success:\n");
     }
-    myssl_inspect(ssl);
+    DEBUG {
+	myssl_inspect(ssl);
+    }
 
 #if 0
     /* testing encryp/decrypt */
