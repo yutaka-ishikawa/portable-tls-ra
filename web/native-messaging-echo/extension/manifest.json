@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Native Messaging Echo Demo",
+  "version": "1.0.0",
+  "description": "Minimal Chrome Native Messaging echo example.",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "action": {
+    "default_title": "Native Echo",
+    "default_popup": "popup.html"
+  }
+}

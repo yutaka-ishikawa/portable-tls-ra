@@ -1,0 +1,9 @@
+{
+  "name": "com.example.native_echo",
+  "description": "Native Messaging Echo Host",
+  "path": "__HOST_PATH__",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://__EXTENSION_ID__/"
+  ]
+}
