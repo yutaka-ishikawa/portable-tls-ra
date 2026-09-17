@@ -1,0 +1,63 @@
+$ ./configure \
+	--with-privsep-path=/run/my-sshd \
+	--with-pe-ssh-security
+$ make -j sshd sshd-auth sshd-session
+$ ls -l sshd sshd-auth sshd-session
+$ sudo mkdir -p /run/my-sshd
+$ sudo chown root:root /run/my-sshd
+$ sudo chmod 0755 /run/my-sshd
+$ sudo /home/ishikawa/work/openssh/openssh-10.5p1-pe-security/work/openssh-10.5p1/sshd -p 1010 -f /etc/ssh/sshd_config -h /etc/ssh/ssh_host_ecdsa_key -D \
+    -o SshdAuthPath="$PWD/sshd-auth" \
+    -o SshdSessionPath="$PWD/sshd-session" \
+    -o LogLevel=DEBUG1
+
+---------------------------------------------------------------------------
+$ git clone https://github.com/openssh/openssh-portable.git
+$ autoupdate
+$ autoreconf -fi
+$ ./configure
+
+---------------------------------------------------------------------------
+IPE SSH: Integrity and Policy Enforcement SSH
+
+#define IPE_SSH_DENY_PTRACE        1
+#define IPE_SSH_DENY_PROCESS_VM    1
+#define IPE_SSH_DENY_PIDFD_ACCESS  1
+#define IPE_SSH_DENY_SIGNALS       1
+#define IPE_SSH_DENY_PERF_BPF      1
+#define IPE_SSH_DENY_KERNEL_ADMIN  1
+
+$ cd openssh-noble-ipe-security-v6
+$ ./scripts/materialize-full-source.sh work
+$ sudo ./scripts/generate-manifest.sh /etc/ssh/my-sshd.manifest
+$ cd work/openssh-9.6p1
+$ autoupdate
+$ autoreconf -fi
+$ ./configure \
+  --with-privsep-path=/run/my-sshd \
+  --with-ipe-ssh-security \
+  --with-ipe-integrity-manifest=/etc/ssh/ipe-sshd.manifest \
+  --with-ipe-integrity-manifest-sha256=e7f4750766e35359e2d6288b63e6582498cf1cd6cfd3a675efbcbd71d706b787
+$ make -j sshd
+# sudo mkdir -p /run/my-sshd
+# sudo chown root:root /run/my-sshd
+# sudo chmod 0755 /run/my-sshd
+$ sudo /home/ishikawa/work/openssh/openssh-noble-ipe-security-v6/work/openssh-9.6p1/sshd -p 1010 -f /etc/ssh/sshd_config -h /etc/ssh/ssh_host_ecdsa_key -D -d
+
+----------------------------------------------------------------------------
+$ sudo ./scripts/generate-manifest.sh /etc/ssh/my-sshd.manifest
+$ sha256sum /etc/ssh/my-sshd.manifest
+$ cd work/openssh-9.6p1
+$ autoupdate
+$ autoreconf -fi
+$ ./configure     --with-umac-ssh-security    \
+	--with-umac-integrity-manifest=/etc/ssh/my-sshd.manifest  \
+	--with-umac-integrity-manifest-sha256=e7f4750766e35359e2d6288b63e6582498cf1cd6cfd3a675efbcbd71d706b787 \
+	--with-privsep-path=/run/my-sshd
+$ make -j sshd
+$ sudo /home/ishikawa/work/openssh-noble-umac-security-v3/work/openssh-9.6p1/sshd -p 1010 -f /etc/ssh/sshd_config -h /etc/ssh/ssh_host_ecdsa_key -D
+#
+# sudo mkdir -p /run/my-sshd
+# sudo chown root:root /run/my-sshd
+# sudo chmod 0755 /run/my-sshd
+
