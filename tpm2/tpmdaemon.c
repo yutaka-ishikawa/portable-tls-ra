@@ -16,10 +16,12 @@
 #include <tss2/tss2_rc.h>
 #include <tss2/tss2_tctildr.h>
 #include <openssl/evp.h>
+#include <openssl/sha.h>
 
 #include "libsock.h"
 #include "libquote.h"
 #include "libmeasurement.h"
+#include "libcbor.h"
 #include "tpmdaemon.h"
 #include <getopt.h>
 
@@ -211,6 +213,28 @@ err0:
     return rc;
 }
 
+/*
+ * make_tpm2_pica:
+ *	The return value, procchain, must free
+ */
+uint8_t *
+make_tpm2_pica(uint8_t *nonce, int nsize,
+	       uint8_t *tpm2_ser, size_t sersz,
+	       size_t *qsz, size_t *pcsz, int pid)
+{
+    uint8_t	*procchain;
+    uint8_t	hash[32];
+    
+    procchain = mycbor_pack_procchain(pid, pcsz);
+    SHA256(procchain, *pcsz, hash);
+    /*
+     * serialized quote and its size are stored in tpm2_ser and qsz
+     */
+    make_tpm2_quote_with_pid(nonce, 32, sersz,
+			     tpm2_ser, qsz, hash, 32, pid);
+    return procchain;
+}
+
 static int
 readpacket(int con, struct tpmd_packet **pkt)
 {
@@ -273,6 +297,51 @@ err0:
     head.len = 0;
     rc = sock_send(con, &head, sizeof(head));
 }
+
+static void
+reply_pica(int con, uint8_t *tpm2_quote, size_t t_size,
+	   uint8_t *pica, size_t p_size)
+{
+    struct tpmd_packet	head;
+    cbor_item_t	*c_pkt;
+    uint8_t	*sendbufp = NULL;
+    size_t	sendsz = 0;
+    int	rc;
+
+    printf("%s: quote size(%ld) pica size(%ld)\n", __func__, t_size, p_size);
+    CBORCALLP(err0, c_pkt, cbor_new_definite_map(2));
+    CBORCALL(err1, rc, add_cbor_map(c_pkt, "tpm2_quote", tpm2_quote, t_size));
+    CBORCALL(err1, rc, add_cbor_map(c_pkt, "pica", pica, p_size));
+    cbor_serialize_alloc(c_pkt, &sendbufp, &sendsz);
+    if (sendbufp <= 0 || sendsz == 0) { goto err1; }
+    
+    head.cmd = TPMD_RPL_PICA;
+    head.aux = TPMD_AUX_OK;
+    head.len = sendsz;
+
+    printf("%s: sending reply of attest, len=%ld\n", __func__, sendsz);
+    printf("%s: sending header\n", __func__);
+    LIBCALLmsg(err2, rc, sock_send(con, &head, sizeof(head)),
+	       "%s: send error\n", __func__);
+    printf("%s: sending data (%ld)\n", __func__, sendsz);
+    LIBCALLmsg(err2, rc, sock_send(con, sendbufp, sendsz),
+	       "%s: send error\n", __func__);
+    /**/
+err2:
+    cbor_decref(&c_pkt);
+    free(sendbufp);
+    return;
+    /* error */
+err1:
+    cbor_decref(&c_pkt);
+err0:
+    fprintf(stderr, "%s: Cannot serialized ...\n", __func__);
+    head.aux = TPMD_AUX_ERR;
+    head.len = 0;
+    rc = sock_send(con, &head, sizeof(head));
+    return;
+}
+
 static void
 tpmddaemon(const char *path)
 {
@@ -300,20 +369,21 @@ tpmddaemon(const char *path)
     printf("sizeof(struct tpmd_packet) = %ld\n", sizeof(struct tpmd_packet));
     sock = sock_listen(path);
     if (sock < 0) goto err;
-    printf("Waiting ..\n");
-    SYSCALL(err, con, accept(sock, NULL, NULL), "accept");
-    {
+    /* loop */
+    for(;;) {
 	struct tpmd_packet *pktp;
 	uint8_t		apphash[32];
 	uint32_t	usize = 32;
 	int	pid;
 	int	rc;
 
+	printf("Waiting ..\n");
+	SYSCALL(err, con, accept(sock, NULL, NULL), "accept");
 	pid = sock_client_pid(con);
-	sha256_pid(pid, apphash, &usize);
+	sha256_pid(pid, apphash, &usize, 0, 0);
 	printf("Receiving request from PID(%d)\n", pid);
 	while ((rc = readpacket(con, &pktp)) == 0) {
-	    uint8_t	buf[1024];
+	    uint8_t	buf[1024*2];
 	    size_t	size = 0;
 	    switch(pktp->cmd) {
 	    case TPMD_REQ_HELLO:
@@ -339,10 +409,21 @@ tpmddaemon(const char *path)
 		make_tpm2_quote_with_pid(&pktp->data[0], 32,
 					 sizeof(buf), buf, &size,
 					 apphash, usize, pid);
-		xprintf("size of tpm2_serial: %ld\n", size);
+		printf("size of tpm2_serial: %ld\n", size);
 		reply_attest(con, &pktp->data[0], buf, size, apphash);
 #endif
 		break;
+	    case TPMD_REQ_PICA:
+	    {
+		uint8_t	*pica;
+		size_t	picsz;
+		printf("Receive REQ_PICA len=%d pid(%d)\n", pktp->len, pid);
+		dump("nonce: ", &pktp->data[0], pktp->len);
+		pica = make_tpm2_pica(&pktp->data[0], 32,
+				      buf, sizeof(buf), &size, &picsz, pid);
+		reply_pica(con, buf, size, pica, picsz);
+		break;
+	    }
 	    default:
 		printf("Unknown command: 0x%x, len=%d\n", pktp->cmd, pktp->len);
 	    }

@@ -5,8 +5,8 @@ SRCS  = $(wildcard *.c)
 OBJS  = $(SRCS_COMMON:.c=.o)
 DEPS  = $(SRCS_COMMON:.c=.d)
 
-MYLIBS = libquote.o libsock.o libmeasurement.o
-MYCMDS = tpmdaemon test_tpmd test_quote test_libsock measure sealtest
+MYLIBS = libquote.o libsock.o libmeasurement.o libprocchain.o libcbor.o
+MYCMDS = tpmdaemon test_tpmd test_quote test_libsock measure sealtest cbortest pchaintest
 
 ################################
 ### SGX
@@ -78,7 +78,7 @@ Enclave/enclave.signed.so: enclave.so Enclave/Enclave.config.xml Enclave/enclave
 	$(SGX_SIGN) sign -key Enclave/enclave_private.pem \
 	  -enclave enclave.so -out $@ -config Enclave/Enclave.config.xml
 
-tpmdaemon: tpmdaemon.o libquote.o libsock.o libmeasurement.o Enclave/Enclave_u.o
+tpmdaemon: tpmdaemon.o libquote.o libsock.o libmeasurement.o libprocchain.o libcbor.o Enclave/Enclave_u.o
 	cc $(CFLAGS) $(U_INC) -o $@ $^ $(LIBS) $(URTS)
 tpmdaemon.o: tpmdaemon.c
 	cc $(CFLAGS) $(U_INC) -c $@ $^ $(LIBS)
@@ -92,6 +92,10 @@ measure: libmeasurement.c
 	cc $(CFLAGS) -DCMD_MEASURE -o $@ $^ -lcrypto
 sealtest: sealtest.o  Enclave/Enclave_u.o
 	cc $(CFLAGS) $(U_INC) -o $@ $^ $(LIBS) $(URTS)
+cbortest: libcbor.c libmeasurement.o libprocchain.o
+	cc $(CFLAGS) -DLIBCBOR_TEST -o $@ libcbor.c libmeasurement.o libprocchain.o -lcbor -lcrypto
+pchaintest: libprocchain.c libmeasurement.o libprocchain.o
+	cc $(CFLAGS) -DLIBPROCCHAIN_TEST -o $@ libprocchain.c libmeasurement.o -lcbor -lcrypto
 sealtest.o: sealtest.c
 	cc $(CFLAGS) $(U_INC) -c $@ $^ $(LIBS)
 quote_esys: quote_esys.c
