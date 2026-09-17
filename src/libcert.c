@@ -43,6 +43,10 @@
 #include "libcert.h"
 #include <cbor.h>
 
+/*
+ * FIXME: temporal hacking !!!
+ */
+#define MEASURE_KEYPAIR
 
 //#define REPORT_CRITICAL
 #ifdef REPORT_CRITICAL
@@ -55,6 +59,9 @@
 int	cert_dflag = 0;
 int	cert_vflag = 0;
 
+#ifdef MEASURE_KEYPAIR
+int64_t	mkp_st_sec, mkp_st_nsec, mkp_et_sec, mkp_et_nsec;
+#endif /* */
 
 /*
  * generate PKI key pair
@@ -161,6 +168,12 @@ make_keypair(uint8_t **pbkey, int *pbsz, uint8_t **prkey, int *prsz)
     EVP_PKEY	*pkey = NULL;
     BIO		*bio = NULL;
     int	rc;
+
+#ifdef MEASURE_KEYPAIR
+    printf("%s: calling key pair\n", __func__);
+    ocall_getclocktime(&mkp_st_sec, &mkp_st_nsec);
+    printf("%s: return calling key pair\n", __func__);
+#endif /* */
     *pbkey = NULL; *pbsz = 0; *prkey = NULL; *prsz = 0;
     TLSRA_LIBCALLP(err0, pkey, genpkey());
     /* Convert PEM format */
@@ -197,12 +210,18 @@ make_keypair(uint8_t **pbkey, int *pbsz, uint8_t **prkey, int *prsz)
     } else {
 	free(privkey);
     }
+#ifdef MEASURE_KEYPAIR
+    ocall_getclocktime(&mkp_et_sec, &mkp_et_nsec);
+#endif /* */
     return pkey;
 err0:
     if (privkey) free(privkey);
     if (pubkey) free(pubkey);
     if (bio) BIO_free(bio);
     if (pkey) EVP_PKEY_free(pkey);
+#ifdef MEASURE_KEYPAIR
+    ocall_getclocktime(&mkp_et_sec, &mkp_et_nsec);
+#endif /* */
     return NULL;
 }
 
