@@ -1,0 +1,739 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c993197..71abbab 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -45,6 +45,10 @@ include(CMakePackageConfigHelpers)
+ option(BUILD_SHARED_LIBS  "Default to building shared libraries" ON)
+ option(BUILD_STATIC_LIBS  "Default to building static libraries" ON)
+ 
++# SGX Enclave modification:
++# Configure json-c for compilation with the Intel SGX trusted C library.
++option(SGX_ENCLAVE "Configure json-c for use inside an Intel SGX Enclave" OFF)
++
+ # Generate a release merge and test it to verify the correctness of republishing the package.
+ ADD_CUSTOM_TARGET(distcheck
+ COMMAND make package_source
+@@ -335,6 +339,64 @@ if (WIN32)
+     set(ENABLE_RDRAND 0)
+ endif()
+ 
++if (SGX_ENCLAVE)
++    # SGX Enclave modification:
++    # CMake feature probes above run on the untrusted host.  Override the
++    # results that would otherwise make trusted objects depend on host-only
++    # headers, locale state, filesystem I/O, syslog, or host random sources.
++    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build no shared library for SGX" FORCE)
++    set(BUILD_STATIC_LIBS ON CACHE BOOL "Build static library for SGX" FORCE)
++    set(BUILD_APPS OFF CACHE BOOL "Do not build host applications for SGX" FORCE)
++    set(BUILD_TESTING OFF CACHE BOOL "Do not build host tests for SGX" FORCE)
++    set(ENABLE_THREADING OFF CACHE BOOL "Disable json-c threading for SGX" FORCE)
++    set(DISABLE_THREAD_LOCAL_STORAGE ON CACHE BOOL "Disable TLS for SGX" FORCE)
++    set(ENABLE_RDRAND OFF CACHE BOOL "Use sgx_read_rand() in trusted code" FORCE)
++    set(DISABLE_EXTRA_LIBS ON CACHE BOOL "Do not link host helper libraries" FORCE)
++
++    set(HAVE_DLFCN_H 0)
++    set(HAVE_ENDIAN_H 0)
++    set(HAVE_FCNTL_H 0)
++    set(HAVE_LOCALE_H 0)
++    set(HAVE_STRINGS_H 0)
++    set(HAVE_SYSLOG_H 0)
++    set(HAVE_SYS_PARAM_H 0)
++    set(HAVE_SYS_RANDOM_H 0)
++    set(HAVE_SYS_RESOURCE_H 0)
++    set(HAVE_SYS_STAT_H 0)
++    set(HAVE_SYS_TYPES_H 0)
++    set(HAVE_UNISTD_H 0)
++    set(HAVE_XLOCALE_H 0)
++    set(HAVE_BSD_STDLIB_H 0)
++
++    set(HAVE_ARC4RANDOM 0)
++    set(HAVE_GETRANDOM 0)
++    set(HAVE_GETRUSAGE 0)
++    set(HAVE_OPEN 0)
++    set(HAVE_SETLOCALE 0)
++    set(HAVE_USELOCALE 0)
++    set(HAVE_DUPLOCALE 0)
++    set(HAVE_STRCASECMP 0)
++    set(HAVE_STRNCASECMP 0)
++    set(HAVE_STRDUP 0)
++    set(HAVE_VASPRINTF 0)
++    set(HAVE_VSYSLOG 0)
++    set(HAVE___THREAD 0)
++    unset(SPEC___THREAD)
++
++    # Intel SGX on Linux is an x86-64 ABI.  These values avoid carrying
++    # host-probed ssize_t details into the trusted build.
++    set(SIZEOF_INT 4)
++    set(SIZEOF_INT64_T 8)
++    set(SIZEOF_LONG 8)
++    set(SIZEOF_LONG_LONG 8)
++    set(SIZEOF_SIZE_T 8)
++    set(SIZEOF_SSIZE_T 8)
++
++    # SGX Enclave modification:
++    # json-c's trusted build does not use libraries found by host probes.
++    set(CMAKE_REQUIRED_LIBRARIES "")
++endif()
++
+ # Once we've done basic symbol/header searches let's add them in.
+ configure_file(${PROJECT_SOURCE_DIR}/cmake/config.h.in        ${PROJECT_BINARY_DIR}/config.h)
+ message(STATUS "Wrote ${PROJECT_BINARY_DIR}/config.h")
+diff --git a/mod/json-c/Makefile.sgx b/Makefile.sgx
+new file mode 100644
+index 0000000..4d05337
+--- /dev/null
++++ b/Makefile.sgx
+@@ -0,0 +1,89 @@
++# Build json-c as a trusted static library for an Intel SGX Enclave.
++#
++# SGX Enclave modification:
++# This build intentionally compiles json-c against the SGX trusted headers
++# rather than glibc headers.  The resulting archive is meant to be linked
++# into an enclave, not into the untrusted host application.
++
++SGX_SDK ?= /opt/intel/sgxsdk
++SGX_CC ?= gcc
++SGX_AR ?= ar
++
++CONFIG_DIR ?= build-sgx-config
++BUILD_DIR ?= build-sgx
++CONFIG_STAMP := $(CONFIG_DIR)/.sgx-configured
++
++# Keep this overridable for diagnostic builds.  A real enclave build should
++# leave -nostdinc enabled.
++SGX_NOSTDINC ?= -nostdinc
++
++JSON_C_SRCS := \
++	arraylist.c \
++	debug.c \
++	json_c_version.c \
++	json_object.c \
++	json_object_iterator.c \
++	json_tokener.c \
++	json_util.c \
++	json_visit.c \
++	linkhash.c \
++	printbuf.c \
++	random_seed.c \
++	strerror_override.c \
++	json_pointer.c \
++	json_patch.c
++
++JSON_C_OBJS := $(JSON_C_SRCS:%.c=$(BUILD_DIR)/%.o)
++TARGET := $(BUILD_DIR)/libjson-c-sgx.a
++
++SGX_INCLUDES := \
++	-I$(SGX_SDK)/include \
++	-I$(SGX_SDK)/include/tlibc \
++	-I$(CONFIG_DIR) \
++	-I.
++
++SGX_CFLAGS ?= \
++	-m64 \
++	-O2 \
++	-DSGX_ENCLAVE=1 \
++	$(SGX_NOSTDINC) \
++	-fvisibility=hidden \
++	-fpie \
++	-ffunction-sections \
++	-fdata-sections \
++	-fstack-protector-strong
++
++.PHONY: all config clean check-undefined
++
++all: $(TARGET)
++
++config: $(CONFIG_STAMP)
++
++$(CONFIG_STAMP): CMakeLists.txt
++	cmake -S . -B $(CONFIG_DIR) \
++		-DSGX_ENCLAVE=ON \
++		-DBUILD_SHARED_LIBS=OFF \
++		-DBUILD_STATIC_LIBS=ON \
++		-DBUILD_APPS=OFF \
++		-DBUILD_TESTING=OFF
++	@test -f $(CONFIG_DIR)/config.h
++	@test -f $(CONFIG_DIR)/json_config.h
++	@test -f $(CONFIG_DIR)/json.h
++	@touch $(CONFIG_STAMP)
++
++$(BUILD_DIR):
++	mkdir -p $(BUILD_DIR)
++
++$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR) config
++	$(SGX_CC) $(SGX_CFLAGS) $(SGX_INCLUDES) -c $< -o $@
++
++$(TARGET): $(JSON_C_OBJS)
++	$(SGX_AR) rcs $@ $^
++
++# This is a diagnostic only.  malloc/free/memcpy/etc. and sgx_read_rand are
++# expected to remain undefined until the final enclave link.
++check-undefined: $(TARGET)
++	nm -u $(TARGET) | sort -u
++
++clean:
++	rm -rf $(BUILD_DIR) $(CONFIG_DIR)
+diff --git a/debug.c b/debug.c
+index 7971744..14139b1 100644
+--- a/debug.c
++++ b/debug.c
+@@ -12,7 +12,9 @@
+ #include "config.h"
+ 
+ #include <stdarg.h>
++#ifndef SGX_ENCLAVE
+ #include <stdio.h>
++#endif
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -33,6 +35,44 @@
+ static int _syslog = 0;
+ static int _debug = 0;
+ 
++#ifdef SGX_ENCLAVE
++/*
++ * SGX Enclave modification:
++ * Suppress implicit stdout/stderr/syslog output from trusted code.  An
++ * application that wants logging should provide an explicit, reviewed OCALL.
++ */
++void mc_set_debug(int debug)
++{
++	_debug = debug;
++}
++
++int mc_get_debug(void)
++{
++	return _debug;
++}
++
++extern void mc_set_syslog(int syslog)
++{
++	_syslog = syslog;
++}
++
++void mc_debug(const char *msg, ...)
++{
++	(void)msg;
++}
++
++void mc_error(const char *msg, ...)
++{
++	(void)msg;
++}
++
++void mc_info(const char *msg, ...)
++{
++	(void)msg;
++}
++
++#else /* SGX_ENCLAVE */
++
+ void mc_set_debug(int debug)
+ {
+ 	_debug = debug;
+@@ -94,3 +134,4 @@ void mc_info(const char *msg, ...)
+ 		vfprintf(stderr, msg, ap);
+ 	va_end(ap);
+ }
++#endif /* SGX_ENCLAVE */
+diff --git a/json_inttypes.h b/json_inttypes.h
+index 4cc5fc1..5de5a85 100644
+--- a/json_inttypes.h
++++ b/json_inttypes.h
+@@ -29,7 +29,15 @@ typedef unsigned __int64 uint64_t;
+ 
+ #endif
+ 
+-#if defined(_MSC_VER) && !defined(ssize_t)
++#ifdef SGX_ENCLAVE
++/*
++ * SGX Enclave modification:
++ * Intel SGX trusted libc does not expose ssize_t through the normal host
++ * sys/types.h path.  json-c only needs a signed size type internally.
++ * Intel SGX on Linux uses the 64-bit ABI, where long is 64 bits.
++ */
++typedef long ssize_t;
++#elif defined(_MSC_VER) && !defined(ssize_t)
+ #include <BaseTsd.h>
+ typedef SSIZE_T ssize_t;
+ #endif
+diff --git a/json_object.c b/json_object.c
+index 0a61967..818ecc6 100644
+--- a/json_object.c
++++ b/json_object.c
+@@ -21,9 +21,9 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#ifdef HAVE_LOCALE_H
++#if defined(HAVE_LOCALE_H) && !defined(SGX_ENCLAVE)
+ #include <locale.h>
+-#endif /* HAVE_LOCALE_H */
++#endif /* HAVE_LOCALE_H && !SGX_ENCLAVE */
+ 
+ #include "arraylist.h"
+ #include "debug.h"
+@@ -2076,7 +2076,15 @@ int json_object_deep_copy(struct json_object *src, struct json_object **dst,
+ 
+ static void json_abort(const char *message)
+ {
++#ifdef SGX_ENCLAVE
++	/*
++	 * SGX Enclave modification:
++	 * Trusted code must not write to host stderr implicitly.
++	 */
++	(void)message;
++#else
+ 	if (message != NULL)
+ 		fprintf(stderr, "json-c aborts with error: %s\n", message);
++#endif
+ 	abort();
+ }
+diff --git a/json_tokener.c b/json_tokener.c
+index 1b44ec5..d1dae03 100644
+--- a/json_tokener.c
++++ b/json_tokener.c
+@@ -34,10 +34,10 @@
+ #include "printbuf.h"
+ #include "strdup_compat.h"
+ 
+-#ifdef HAVE_LOCALE_H
++#if defined(HAVE_LOCALE_H) && !defined(SGX_ENCLAVE)
+ #include <locale.h>
+-#endif /* HAVE_LOCALE_H */
+-#ifdef HAVE_XLOCALE_H
++#endif /* HAVE_LOCALE_H && !SGX_ENCLAVE */
++#if defined(HAVE_XLOCALE_H) && !defined(SGX_ENCLAVE)
+ #include <xlocale.h>
+ #endif
+ #ifdef HAVE_STRINGS_H
+@@ -46,12 +46,39 @@
+ 
+ #define jt_hexdigit(x) (((x) <= '9') ? (x) - '0' : ((x)&7) + 9)
+ 
+-#if !HAVE_STRNCASECMP && defined(_WIN32)
++#ifdef SGX_ENCLAVE
++/*
++ * SGX Enclave modification:
++ * JSON keywords are ASCII.  Use an ASCII-only replacement and avoid the
++ * host strings.h/locale implementation.
++ */
++static int json_c_sgx_strncasecmp(const char *s1, const char *s2, size_t n)
++{
++	while (n-- > 0)
++	{
++		unsigned char c1 = (unsigned char)*s1++;
++		unsigned char c2 = (unsigned char)*s2++;
++
++		if (c1 >= 'A' && c1 <= 'Z')
++			c1 = (unsigned char)(c1 + ('a' - 'A'));
++		if (c2 >= 'A' && c2 <= 'Z')
++			c2 = (unsigned char)(c2 + ('a' - 'A'));
++
++		if (c1 != c2)
++			return c1 < c2 ? -1 : 1;
++		if (c1 == '\0')
++			return 0;
++	}
++	return 0;
++}
++#define strncasecmp json_c_sgx_strncasecmp
++
++#elif !HAVE_STRNCASECMP && defined(_WIN32)
+ /* MSC has the version as _strnicmp */
+ #define strncasecmp _strnicmp
+ #elif !HAVE_STRNCASECMP
+ #error You do not have strncasecmp on your system.
+-#endif /* HAVE_STRNCASECMP */
++#endif /* SGX_ENCLAVE / HAVE_STRNCASECMP */
+ 
+ #if defined(_MSC_VER) && (_MSC_VER <= 1800)
+ /* VS2013 doesn't know about "inline" */
+@@ -321,10 +348,10 @@ struct json_object *json_tokener_parse_ex(struct json_tokener *tok, const char *
+ 	unsigned int nBytes = 0;
+ 	unsigned int *nBytesp = &nBytes;
+ 
+-#ifdef HAVE_USELOCALE
++#if defined(HAVE_USELOCALE) && !defined(SGX_ENCLAVE)
+ 	locale_t oldlocale = uselocale(NULL);
+ 	locale_t newloc;
+-#elif defined(HAVE_SETLOCALE)
++#elif defined(HAVE_SETLOCALE) && !defined(SGX_ENCLAVE)
+ 	char *oldlocale = NULL;
+ #endif
+ 
+@@ -343,7 +370,7 @@ struct json_object *json_tokener_parse_ex(struct json_tokener *tok, const char *
+ 		return NULL;
+ 	}
+ 
+-#ifdef HAVE_USELOCALE
++#if defined(HAVE_USELOCALE) && !defined(SGX_ENCLAVE)
+ 	{
+ #ifdef HAVE_DUPLOCALE
+ 		locale_t duploc = duplocale(oldlocale);
+@@ -373,7 +400,7 @@ struct json_object *json_tokener_parse_ex(struct json_tokener *tok, const char *
+ #endif
+ 		uselocale(newloc);
+ 	}
+-#elif defined(HAVE_SETLOCALE)
++#elif defined(HAVE_SETLOCALE) && !defined(SGX_ENCLAVE)
+ 	{
+ 		char *tmplocale;
+ 		tmplocale = setlocale(LC_NUMERIC, NULL);
+@@ -1345,10 +1372,10 @@ out:
+ 			tok->err = json_tokener_error_parse_eof;
+ 	}
+ 
+-#ifdef HAVE_USELOCALE
++#if defined(HAVE_USELOCALE) && !defined(SGX_ENCLAVE)
+ 	uselocale(oldlocale);
+ 	freelocale(newloc);
+-#elif defined(HAVE_SETLOCALE)
++#elif defined(HAVE_SETLOCALE) && !defined(SGX_ENCLAVE)
+ 	setlocale(LC_NUMERIC, oldlocale);
+ 	free(oldlocale);
+ #endif
+diff --git a/json_util.c b/json_util.c
+index 2b5f858..4b9dbbf 100644
+--- a/json_util.c
++++ b/json_util.c
+@@ -58,7 +58,9 @@
+ #include "json_util.h"
+ #include "printbuf.h"
+ 
++#ifndef SGX_ENCLAVE
+ static int _json_object_to_fd(int fd, struct json_object *obj, int flags, const char *filename);
++#endif
+ 
+ static char _last_err[256] = "";
+ 
+@@ -78,6 +80,68 @@ void _json_c_set_last_err(const char *err_fmt, ...)
+ 	va_end(ap);
+ }
+ 
++#ifdef SGX_ENCLAVE
++/*
++ * SGX Enclave modification:
++ * Enclaves have no direct host file-descriptor namespace.  Keep these public
++ * json-c APIs link-compatible, but fail closed.  Read the file outside the
++ * enclave and pass the bytes through an ECALL, then use json_tokener_parse_ex().
++ */
++static void json_c_sgx_file_io_unavailable(const char *function_name)
++{
++	_json_c_set_last_err("%s is unavailable inside an Intel SGX Enclave\n", function_name);
++}
++
++struct json_object *json_object_from_fd(int fd)
++{
++	(void)fd;
++	json_c_sgx_file_io_unavailable("json_object_from_fd");
++	return NULL;
++}
++
++struct json_object *json_object_from_fd_ex(int fd, int in_depth)
++{
++	(void)fd;
++	(void)in_depth;
++	json_c_sgx_file_io_unavailable("json_object_from_fd_ex");
++	return NULL;
++}
++
++struct json_object *json_object_from_file(const char *filename)
++{
++	(void)filename;
++	json_c_sgx_file_io_unavailable("json_object_from_file");
++	return NULL;
++}
++
++int json_object_to_file_ext(const char *filename, struct json_object *obj, int flags)
++{
++	(void)filename;
++	(void)obj;
++	(void)flags;
++	json_c_sgx_file_io_unavailable("json_object_to_file_ext");
++	return -1;
++}
++
++int json_object_to_fd(int fd, struct json_object *obj, int flags)
++{
++	(void)fd;
++	(void)obj;
++	(void)flags;
++	json_c_sgx_file_io_unavailable("json_object_to_fd");
++	return -1;
++}
++
++int json_object_to_file(const char *filename, struct json_object *obj)
++{
++	(void)filename;
++	(void)obj;
++	json_c_sgx_file_io_unavailable("json_object_to_file");
++	return -1;
++}
++
++#else /* SGX_ENCLAVE */
++
+ struct json_object *json_object_from_fd(int fd)
+ {
+ 	return json_object_from_fd_ex(fd, -1);
+@@ -231,6 +295,7 @@ int json_object_to_file(const char *filename, struct json_object *obj)
+ {
+ 	return json_object_to_file_ext(filename, obj, JSON_C_TO_STRING_PLAIN);
+ }
++#endif /* SGX_ENCLAVE */
+ 
+ // Deprecated json_parse_double function.  See json_tokener_parse_double instead.
+ int json_parse_double(const char *buf, double *retval)
+diff --git a/json_visit.c b/json_visit.c
+index fb16fa6..b0b4380 100644
+--- a/json_visit.c
++++ b/json_visit.c
+@@ -5,7 +5,9 @@
+  * it under the terms of the MIT license. See COPYING for details.
+  */
+ 
++#ifndef SGX_ENCLAVE
+ #include <stdio.h>
++#endif
+ 
+ #include "config.h"
+ #include "json_inttypes.h"
+@@ -13,6 +15,16 @@
+ #include "json_visit.h"
+ #include "linkhash.h"
+ 
++#ifdef SGX_ENCLAVE
++/*
++ * SGX Enclave modification:
++ * Do not write diagnostics to host stderr from trusted code.
++ */
++#define JSON_C_VISIT_REPORT(...) ((void)0)
++#else
++#define JSON_C_VISIT_REPORT(...) fprintf(stderr, __VA_ARGS__)
++#endif
++
+ static int _json_c_visit(json_object *jso, json_object *parent_jso, const char *jso_key,
+                          size_t *jso_index, json_c_visit_userfunc *userfunc, void *userarg);
+ 
+@@ -40,8 +52,8 @@ static int _json_c_visit(json_object *jso, json_object *parent_jso, const char *
+ 	case JSON_C_VISIT_RETURN_STOP:
+ 	case JSON_C_VISIT_RETURN_ERROR: return userret;
+ 	default:
+-		fprintf(stderr, "ERROR: invalid return value from json_c_visit userfunc: %d\n",
+-		        userret);
++		JSON_C_VISIT_REPORT("ERROR: invalid return value from json_c_visit userfunc: %d\n",
++		                    userret);
+ 		return JSON_C_VISIT_RETURN_ERROR;
+ 	}
+ 
+@@ -68,8 +80,8 @@ static int _json_c_visit(json_object *jso, json_object *parent_jso, const char *
+ 			if (userret != JSON_C_VISIT_RETURN_CONTINUE &&
+ 			    userret != JSON_C_VISIT_RETURN_SKIP)
+ 			{
+-				fprintf(stderr, "INTERNAL ERROR: _json_c_visit returned %d\n",
+-				        userret);
++				JSON_C_VISIT_REPORT("INTERNAL ERROR: _json_c_visit returned %d\n",
++				                    userret);
+ 				return JSON_C_VISIT_RETURN_ERROR;
+ 			}
+ 		}
+@@ -91,16 +103,16 @@ static int _json_c_visit(json_object *jso, json_object *parent_jso, const char *
+ 			if (userret != JSON_C_VISIT_RETURN_CONTINUE &&
+ 			    userret != JSON_C_VISIT_RETURN_SKIP)
+ 			{
+-				fprintf(stderr, "INTERNAL ERROR: _json_c_visit returned %d\n",
+-				        userret);
++				JSON_C_VISIT_REPORT("INTERNAL ERROR: _json_c_visit returned %d\n",
++				                    userret);
+ 				return JSON_C_VISIT_RETURN_ERROR;
+ 			}
+ 		}
+ 		break;
+ 	}
+ 	default:
+-		fprintf(stderr, "INTERNAL ERROR: _json_c_visit found object of unknown type: %d\n",
+-		        json_object_get_type(jso));
++		JSON_C_VISIT_REPORT("INTERNAL ERROR: _json_c_visit found object of unknown type: %d\n",
++		                    json_object_get_type(jso));
+ 		return JSON_C_VISIT_RETURN_ERROR;
+ 	}
+ 
+@@ -120,8 +132,8 @@ static int _json_c_visit(json_object *jso, json_object *parent_jso, const char *
+ 	case JSON_C_VISIT_RETURN_STOP:
+ 	case JSON_C_VISIT_RETURN_ERROR: return userret;
+ 	default:
+-		fprintf(stderr, "ERROR: invalid return value from json_c_visit userfunc: %d\n",
+-		        userret);
++		JSON_C_VISIT_REPORT("ERROR: invalid return value from json_c_visit userfunc: %d\n",
++		                    userret);
+ 		return JSON_C_VISIT_RETURN_ERROR;
+ 	}
+ 	// NOTREACHED
+diff --git a/random_seed.c b/random_seed.c
+index 0ea57e0..221ceb6 100644
+--- a/random_seed.c
++++ b/random_seed.c
+@@ -11,6 +11,32 @@
+ 
+ #include "random_seed.h"
+ #include "config.h"
++
++#ifdef SGX_ENCLAVE
++#include <sgx_trts.h>
++
++/*
++ * SGX Enclave modification:
++ * Use the trusted SGX random generator rather than /dev/urandom, getrandom(),
++ * RDRAND probing, arc4random(), or host time.
++ */
++int json_c_get_random_seed(void)
++{
++	int seed = 0;
++	sgx_status_t status;
++
++	status = sgx_read_rand((unsigned char *)&seed, sizeof(seed));
++	if (status != SGX_SUCCESS)
++		return 0;
++
++	/* -1 is used by json-c as an uninitialized hash-seed sentinel. */
++	if (seed == -1)
++		seed = 0;
++	return seed;
++}
++
++#else /* SGX_ENCLAVE */
++
+ #include "strerror_override.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -355,3 +381,4 @@ int json_c_get_random_seed(void)
+ 	return get_time_seed();
+ #endif /* !HAVE_ARC4RANDOM */
+ }
++#endif /* SGX_ENCLAVE */
+diff --git a/strdup_compat.h b/strdup_compat.h
+index 2f2df65..0d71216 100644
+--- a/strdup_compat.h
++++ b/strdup_compat.h
+@@ -6,11 +6,38 @@
+  * @brief Do not use, json-c internal, may be changed or removed at any time.
+  */
+ 
+-#if !defined(HAVE_STRDUP) && defined(_MSC_VER)
++#ifdef SGX_ENCLAVE
++#include <stdlib.h>
++#include <string.h>
++
++/*
++ * SGX Enclave modification:
++ * Intel SGX trusted libc does not provide strdup() on all SDK versions.
++ * Keep the replacement private to json-c and allocate from enclave heap.
++ */
++static char *json_c_sgx_strdup(const char *s)
++{
++    size_t len;
++    char *copy;
++
++    if (s == NULL)
++        return NULL;
++
++    len = strlen(s) + 1;
++    copy = (char *)malloc(len);
++    if (copy == NULL)
++        return NULL;
++
++    memcpy(copy, s, len);
++    return copy;
++}
++#define strdup json_c_sgx_strdup
++
++#elif !defined(HAVE_STRDUP) && defined(_MSC_VER)
+ /* MSC has the version as _strdup */
+ #define strdup _strdup
+ #elif !defined(HAVE_STRDUP)
+ #error You do not have strdup on your system.
+-#endif /* HAVE_STRDUP */
++#endif /* SGX_ENCLAVE / HAVE_STRDUP */
+ 
+ #endif
+diff --git a/strerror_override.c b/strerror_override.c
+index a3dd377..c91aa87 100644
+--- a/strerror_override.c
++++ b/strerror_override.c
+@@ -59,8 +59,16 @@ static struct
+ /* clang-format on */
+ 
+ // Enabled during tests
++#ifdef SGX_ENCLAVE
++/*
++ * SGX Enclave modification:
++ * Never inspect the untrusted process environment from trusted code.
++ */
++static int _json_c_strerror_enable = 1;
++#else
+ static int _json_c_strerror_enable = 0;
+ extern char *getenv(const char *name); // Avoid including stdlib.h
++#endif
+ 
+ #define PREFIX "ERRNO="
+ static char errno_buf[128] = PREFIX;
+@@ -70,10 +78,18 @@ char *_json_c_strerror(int errno_in)
+ 	char digbuf[20];
+ 	int ii, jj;
+ 
++#ifndef SGX_ENCLAVE
+ 	if (!_json_c_strerror_enable)
+ 		_json_c_strerror_enable = (getenv("_JSON_C_STRERROR_ENABLE") == NULL) ? -1 : 1;
+ 	if (_json_c_strerror_enable == -1)
+ 		return strerror(errno_in);
++#else
++	/*
++	 * SGX Enclave modification:
++	 * Always use json-c's internal errno names/numbers in trusted code.
++	 */
++	(void)_json_c_strerror_enable;
++#endif
+ 
+ 	// Avoid standard functions, so we don't need to include any
+ 	// headers, or guess at signatures.
+diff --git a/vasprintf_compat.h b/vasprintf_compat.h
+index 550b604..97ba0bb 100644
+--- a/vasprintf_compat.h
++++ b/vasprintf_compat.h
+@@ -15,8 +15,18 @@
+ #include <stdlib.h>
+ 
+ #if !defined(HAVE_VASPRINTF)
++#ifdef SGX_ENCLAVE
++/*
++ * SGX Enclave modification:
++ * Use a json-c-private name so trusted builds do not collide with a host
++ * vasprintf declaration.  The implementation below only needs vsnprintf().
++ */
++#define vasprintf json_c_sgx_vasprintf
++static int json_c_sgx_vasprintf(char **buf, const char *fmt, va_list ap)
++#else
+ /* CAW: compliant version of vasprintf */
+ static int vasprintf(char **buf, const char *fmt, va_list ap)
++#endif
+ {
+ #ifndef _WIN32
+ 	static char _T_emptybuffer = '\0';
+@@ -51,7 +61,16 @@ static int vasprintf(char **buf, const char *fmt, va_list ap)
+ 		return -1;
+ 	}
+ 
++#ifdef SGX_ENCLAVE
++	/*
++	 * SGX Enclave modification:
++	 * Avoid depending on vsprintf(); the trusted C library provides the
++	 * bounded vsnprintf() interface needed here.
++	 */
++	if ((chars = vsnprintf(b, (size_t)chars + 1, fmt, ap)) < 0)
++#else
+ 	if ((chars = vsprintf(b, fmt, ap)) < 0)
++#endif
+ 	{
+ 		free(b);
+ 	}
