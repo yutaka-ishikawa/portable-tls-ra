@@ -614,6 +614,11 @@ main(int argc, char **argv)
 
 	printf("!!!!!! policy read !!!!!!\n");
 	ocall_pica_fsize(polpath, &sz, &fd);
+	if (fd < 0) {
+	    printf("Cannot open policy file: %s\n", polpath);
+	    rc = -1;
+	    goto err;
+	}
 	buffer = malloc(sz);
 	ocall_pica_fread(fd, buffer, sz, &wsz);
 	
