@@ -8,7 +8,7 @@ $ git submodule update --init --recursive
    $ cd Enclave/external
    $ cmake -DCMAKE_BUILD_TYPE=Release -DCBOR_PRETTY_PRINTER=OFF libcbor
    $ make
-   #example progm compilation will fail, but it is OK.
+   example progm compilation will fail, but it is OK.
 2) Build tpm2-tss
    $ cd ../../../tpm2-tss
    $ ./bootstrap
@@ -38,5 +38,14 @@ $ git submodule update --init --recursive
    $ make -f Makefile.sgx
    $ cp -p build-sgx/libjson-c-sgx.a ../../pica_sgx/
    $ cd ../..
-4) $ cd pica_sgx
+5) Build pica_sgx
+   $ cd pica_sgx
+   $ make
 
+# Configure
+1) Modification of the policy.json file
+   You must modify the following two lines of policy.json:
+   Line 8:
+       "Binary": "/home/ishikawa/work/portable-tls-ra/pica_sgx/host",
+   Line 20:
+        "/home/ishikawa/work/portable-tls-ra/pica_sgx/host"
