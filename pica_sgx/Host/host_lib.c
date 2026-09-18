@@ -45,7 +45,7 @@ void ocall_open(const char *path, int flags, int *ret)
 {
     OCALL_PRINT(oflag);
     *ret = open(path, flags, 0666);
-    printf("%s: return fd = %d\n", __func__, *ret);
+    //printf("%s: return fd = %d\n", __func__, *ret);
 }
 
 void ocall_write(int fd, void *buf, size_t len, size_t *wlen)
@@ -124,8 +124,8 @@ ocall_readfile(const char *fname, char *buf, size_t ilen, size_t *olen)
     size_t	len;
     int		rc;
     *olen = 0;
-    printf("%s: current directory is %s\n", __func__, get_current_dir_name());
-    printf("%s: file name = %s\n", __func__, fname);
+    //printf("%s: current directory is %s\n", __func__, get_current_dir_name());
+    //printf("%s: file name = %s\n", __func__, fname);
     if ((fp = fopen(fname, "r")) == NULL) {
 	fprintf(stderr, "Error: reading file %s\n", fname);
 	perror("fopen");
@@ -330,7 +330,7 @@ ocall_getclocktime(int64_t *sec, int64_t *nsec)
     }
     *sec  = (int64_t)ts.tv_sec;
     *nsec = (int64_t)ts.tv_nsec;
-    fprintf(stderr, "%s: sec(%ld) nsec(%ld)\n", __func__, *sec, *nsec);
+    //fprintf(stderr, "%s: sec(%ld) nsec(%ld)\n", __func__, *sec, *nsec);
 }
 
 

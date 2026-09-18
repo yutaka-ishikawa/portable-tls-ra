@@ -30,11 +30,16 @@ struct timespec;
 #include "libpica.h"
 #include "picatest.h"
 
+#define PICA_POLICY_PATH	"./policy.json"
+#define PICA_CONF_PATH		"./pica.conf"
+#define PICA_DAEMON_PATH	"/tmp/sock-tpmd-daemon"
+
+int	dflag = 0;
 int	vflag = 0;
 int	rflag = 0;
-char	*dpath = "/tmp/sock-tpmd-daemon";
-char	*ppath = "./pica.conf";
-
+char	*pol_path = PICA_POLICY_PATH;
+char	*pconf_path = PICA_CONF_PATH;
+char	*pdaemon_path = PICA_DAEMON_PATH;
 
 static void
 show_procinfo(struct procinfo *cpif, int proc_cnt)
@@ -89,7 +94,7 @@ build_conf(uint8_t *buf, struct procinfo **pinfop)
 }
 
 static void
-reg_config(struct procinfo *pinfo, int entries)
+reg_config(const char *fname, struct procinfo *pinfo, int entries)
 {
     int	fd;
     int	i, j, ret;
@@ -102,15 +107,12 @@ reg_config(struct procinfo *pinfo, int entries)
     struct confhead	head;
     struct procinfo	*cpif;
 
-    printf("%s: calling ocall_open. entries(%d)\n", __func__, entries);
-    ocall_open(ppath, O_CREAT|O_RDWR, &fd);
-    printf("%s: fd = %d\n", __func__, fd);
+    ocall_open(fname, O_CREAT|O_RDWR, &fd);
     if (fd < 0) {
-	printf("Cannot write configuration file: %s\n", ppath);
+	printf("Cannot write configuration file: %s\n", fname);
 	abort();
     }
 
-    printf("%s: entries = %d\n", __func__, entries);
     cpif = malloc(sizeof(struct procinfo)*entries); /* FIXME: */
     memcpy(cpif, pinfo, sizeof(struct procinfo)*entries);
 
@@ -124,7 +126,7 @@ reg_config(struct procinfo *pinfo, int entries)
 	    ssz += strlen(pinfo[i].libs[j].path) + 1;
 	}
     }
-    printf("%s: fdigest count = %d string size = %ld\n", __func__, fdcnt, ssz);
+    //printf("%s: fdigest count = %d string size = %ld\n", __func__, fdcnt, ssz);
     /* out fdigest */
     fdp_dst = malloc(sizeof(struct fdigest)*fdcnt);
     memset(fdp_dst, 0, sizeof(struct fdigest)*fdcnt); fpos = 0;
@@ -155,7 +157,7 @@ reg_config(struct procinfo *pinfo, int entries)
 	    }
 	}
     }
-    printf("fdcnt = %d fpos = %d strsize = %ld pos = %d\n", fdcnt, fpos, ssz, spos);
+    //printf("fdcnt = %d fpos = %d strsize = %ld pos = %d\n", fdcnt, fpos, ssz, spos);
 
     /* prepare header */
     memset(&head, 0, sizeof(struct confhead));
@@ -173,7 +175,6 @@ reg_config(struct procinfo *pinfo, int entries)
     free(sbuf);
     free(cpif);
     free(fdp_dst);
-    printf("return\n");
 err:
     return;
 }
@@ -186,16 +187,13 @@ static void
 free_pinfo(struct procinfo *pinfo, int entries)
 {
     int	i, j;
-    printf("%s: pinfo[0].path = %p\n", __func__, pinfo[0].path);
+    //printf("%s: pinfo[0].path = %p\n", __func__, pinfo[0].path);
     for (i = 0; i < entries; i++) {
-	printf("pinfo[%d].path = %p\n", i, pinfo[i].path);
 	if (pinfo[i].path) free(pinfo[i].path);
-	printf("pinfo[%d].count = %d\n", i, pinfo[i].count);
 	for (j = 0; j < pinfo[i].count; j++) {
 	    printf("pinfo[%d].libs[%d].path = %p\n", i, j, pinfo[i].libs[j].path);
 	    free(pinfo[i].libs[j].path);
 	}
-	printf("free libs\n");
 	free (pinfo[i].libs);
     }
     free(pinfo);
@@ -396,9 +394,8 @@ unpack_sercbor(cbor_item_t *item)
     cbor_item_t	*cbor = NULL;
     struct cbor_load_result res;
 
-    printf("%s: item = %.*s\n", __func__, 10, (char*) item);
     if (cbor_typeof(item) != CBOR_TYPE_BYTESTRING) {
-	printf("%s: data is not a serialized CBOR(%d)\n",
+	fprintf(stderr, "%s: data is not a serialized CBOR(%d)\n",
 	       __func__, cbor_typeof(item));
 	goto err;
     }
@@ -406,7 +403,7 @@ unpack_sercbor(cbor_item_t *item)
     sz = cbor_bytestring_length(item);
     cbor = cbor_load(cp, sz, &res);
     if (res.error.code != CBOR_ERR_NONE) {
-	printf("%s: data (size=%ld) is corruted (%d)\n", __func__, sz, res.error.code);
+	fprintf(stderr, "%s: data (size=%ld) is corruted (%d)\n", __func__, sz, res.error.code);
 	cbor = NULL;
     }
 err:
@@ -425,11 +422,11 @@ handle_tpm2_quote(cbor_item_t *item)
     int	i;
 
     if (!cmap || !cbor_isa_map(cmap)) {
-	printf("%s: received data is corruted\n", __func__);
+	fprintf(stderr, "%s: received data is corruted\n", __func__);
 	rc = -1; goto err_ext;
     }
     if (cbor_map_size(cmap) != 3) {
-	printf("%s: cbor map size is not 3\n", __func__);
+	fprintf(stderr, "%s: cbor map size is not 3\n", __func__);
         goto err_ext;
     }
     {
@@ -446,7 +443,7 @@ handle_tpm2_quote(cbor_item_t *item)
 	    char	*cp = (char*) cbor_string_handle(key);
 	    size_t	clen = cbor_string_length(key);
 	    if (!(key && cbor_isa_string(key) && val)) {
-		printf("%s: something wrong\n", __func__);
+		fprintf(stderr, "%s: something wrong\n", __func__);
 		continue;
 	    }
 	    if (!strncmp("quote", cp, clen)) {
@@ -484,14 +481,14 @@ handle_tpm2_quote(cbor_item_t *item)
 	    }
 	    rc = verify_tpm2_quote(s_quote, s_siz, &tpm_sig, ak_pubkey);
 	    if (rc < 0) {
-		fprintf(stderr, "%s: Verify Failed\n", __func__);
+		VERBOSE fprintf(stderr, "%s: Verify Failed\n", __func__);
 	    }
-	    printf("%s: verify success!\n", __func__);
+	    VERBOSE fprintf(stderr, "%s: verify success!\n", __func__);
 	err:
 	    if (buf) free(buf);
 	    if (ak_pubkey) EVP_PKEY_free(ak_pubkey);
 	} else {
-	    printf("%s: error!!!\n", __func__);
+	    fprintf(stderr, "%s: error!!!\n", __func__);
 	}
     }
 err_ext:
@@ -511,11 +508,10 @@ handle_pica(cbor_item_t *item, struct procinfo **out)
     int	i, j;
     
     if (!carray || !cbor_isa_array(carray)) {
-	printf("%s: received data is corruted\n", __func__);
+	fprintf(stderr, "%s: received data is corruted\n", __func__);
 	goto err;
     }
     entries = cbor_array_size(carray);
-    printf("%s: array size = %ld\n", __func__, entries);
     pinfo = malloc(sizeof(struct procinfo)*entries);  // FIXME: error check
     memset(pinfo, 0, sizeof(struct procinfo)*entries);
     for (i = 0; i < entries; i++) {
@@ -524,7 +520,6 @@ handle_pica(cbor_item_t *item, struct procinfo **out)
 	cbor_item_t	*cmap = unpack_sercbor(item);
 	struct cbor_pair *cpair = cbor_map_handle(cmap);
 	count = cbor_map_size(cmap);
-	printf("\tcount(%ld)\n", count);
 	/* the first 10 entries */
 	pinfo[i].pid  = mycbor_get_int(cpair[0].value); /* "pid" */
 	pinfo[i].ppid = mycbor_get_int(cpair[1].value); /* "ppid" */
@@ -554,6 +549,52 @@ err:
     return 0;
 }
 
+static void
+usage(const char *cmd)
+{
+    fprintf(stderr, "%s: [-d] [-D <daemon path>] [-r <conf file>] [-p <policy file>]\n", cmd);
+}
+
+#define OPT_GET_STRVAL(dst, len, pos, argc, argv, lbl) \
+do {						\
+    if ((pos +1) >= argc) goto lbl;		\
+    dst = strndup(argv[pos+1], len); pos++;	\
+} while(0);
+    
+static int
+getoption(int argc, char **argv)
+{
+    int	i;
+    for (i = 1; i < argc; i++) {
+	printf("argv[%d] = %s\n", i, argv[i]);
+	if (argv[i][0] == '-') {
+	    switch (argv[i][1]) {
+	    case 'd':
+		dflag = 1; break;
+	    case 'D': /* using Attester Daemon */
+		OPT_GET_STRVAL(pdaemon_path, 108, i, argc, argv, err);
+		break;
+	    case 'r': /* registering mode: writing configuration file */
+		OPT_GET_STRVAL(pconf_path, 1024, i, argc, argv, err);
+		rflag = 1;
+		break;
+	    case 'p': /* policy file */
+		OPT_GET_STRVAL(pol_path, 1024, i, argc, argv, err);
+		break;
+	    case 'v':
+		vflag = 1; printf("vflag is set\n"); break;
+	    }
+	} else {
+	    break;
+	}
+    }
+    return i;
+err:
+    usage(argv[0]);
+    return -1;
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -575,16 +616,14 @@ main(int argc, char **argv)
     int	i;
     int		rc = 0;
 
-    printf("%s: invoked\n", __func__);
-    for (i = 1; i < argc; i++) {
-	if (!strcmp(argv[i], "-r")) {
-	    rflag = 1;
-	}
+    DEBUG printf("%s: invoked\n", __func__);
+    rc = getoption(argc, argv);
+    if (rc < 0) {
+	return -1;
     }
     if (rflag) { /* registering procinfo for configuration */
 	printf("!!!!!! REGISTER MODE !!!!!!!\n");
     } else { /* reading procinfo from conf file */
-	char	*pconf_path = "./pica.conf";
 	size_t	sz, wsz;
 	uint8_t	*buffer;
 	int	fd;
@@ -596,7 +635,7 @@ main(int argc, char **argv)
 	buffer = malloc(sz);
 	ocall_pica_fread(fd, buffer, sz, &wsz);
 	entries = build_conf(buffer, &procinfo);
-	printf("\tentries = %d\n", entries);
+	VERBOSE printf("\tentries = %d\n", entries);
 	show_procinfo(procinfo, entries);
 	/* the allocated memory area is used, do not free */
 	for (i = 0; i < entries; i++) {
@@ -605,7 +644,6 @@ main(int argc, char **argv)
 	}
     }
     {	/* policy read from file */
-	char	*polpath = "./policy.json";
 	size_t	sz, wsz;
 	uint8_t	*buffer;
 	int	fd;
@@ -613,9 +651,9 @@ main(int argc, char **argv)
 	struct json_object *jobj;
 
 	printf("!!!!!! policy read !!!!!!\n");
-	ocall_pica_fsize(polpath, &sz, &fd);
+	ocall_pica_fsize(pol_path, &sz, &fd);
 	if (fd < 0) {
-	    printf("Cannot open policy file: %s\n", polpath);
+	    fprintf(stderr, "Cannot open policy file: %s\n", pol_path);
 	    rc = -1;
 	    goto err;
 	}
@@ -623,14 +661,13 @@ main(int argc, char **argv)
 	ocall_pica_fread(fd, buffer, sz, &wsz);
 	
 	tok = json_tokener_new(); /* FIXME: */
-	printf("calling json_tokener_parse_ex\n");
 	jobj = json_tokener_parse_ex(tok, buffer, wsz);
 	if (!jobj) {
-	    printf("Error: %s\n", json_util_get_last_err());
+	    fprintf(stderr, "Error: %s\n", json_util_get_last_err());
 	}
 	json_parse(jobj, &ppol);
 	free(buffer);
-	picapol_show(&ppol);
+	VERBOSE picapol_show(&ppol);
 	for (i = 0; i < ppol.entries; i++) {
 	    struct pica_stmt *stmt = &ppol.stmt[i];
 	    reg_hashtable(PICA_ENT_CONF_POLICY, stmt, stmt->exec_path);
@@ -644,13 +681,12 @@ main(int argc, char **argv)
     }
     memset(measure, 0, msz);
     printf("calling ocall_pica_measure with buf size = %ld Byte\n", msz);
-    sret = ocall_pica_measure(nonce, measure, sizeof(measure), &msz, dpath);
+    sret = ocall_pica_measure(nonce, measure, sizeof(measure), &msz, pdaemon_path);
     if (sret != SGX_SUCCESS) {
 	printf("%s: ocall_pica_measure error sret=0x%x\n", __func__, sret);
 	return -1;
     }
     printf("measure size = %ld Byte\n", msz);
-    dump("measure(64):", measure, 64);
     /*
      * cbor map:  0: tpm2_quote, 1:pica measures
      */
@@ -665,21 +701,20 @@ main(int argc, char **argv)
     }
     /* map size check */
     if (cbor_map_size(cmap) != 2) {
-	printf("%s: cbor map size is not 2\n", __func__);
+	fprintf(stderr, "%s: cbor map size is not 2\n", __func__);
         goto err;
     }
     {
 	struct cbor_pair *cpair = cbor_map_handle(cmap);
 	int	i;
 
-	printf("cbor_map_size = %d\n", cbor_map_size(cmap));
+	//printf("cbor_map_size = %d\n", cbor_map_size(cmap));
 	for (i = 0; i < cbor_map_size(cmap); i++) {
 	    cbor_item_t	*key = cpair[i].key;
 	    cbor_item_t	*val = cpair[i].value;
 	    char	*cp = (char*) cbor_string_handle(key);
 	    size_t	clen = cbor_string_length(key);
-	    if (key && cbor_isa_string(key)
-		&& val) {
+	    if (key && cbor_isa_string(key) && val) {
 		if (!strncmp("tpm2_quote", cp, clen)) {
 		    if (handle_tpm2_quote(val) == 0) {
 			verified |= VERIFY_TPM2_QUOTE;
@@ -690,7 +725,7 @@ main(int argc, char **argv)
 		    entries = handle_pica(val, &pinfo);
 		    if (entries > 0 && rflag) {
 			/* registration in configuration file */
-			reg_config(pinfo, entries);
+			reg_config(pconf_path, pinfo, entries);
 			free_pinfo(pinfo, entries);
 		    } else {
 			fresh_pinfo = pinfo; fresh_pent = entries;

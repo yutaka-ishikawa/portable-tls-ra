@@ -49,3 +49,5 @@ $ git submodule update --init --recursive
        "Binary": "/home/ishikawa/work/portable-tls-ra/pica_sgx/host",
    Line 20:
         "/home/ishikawa/work/portable-tls-ra/pica_sgx/host"
+
+# Run

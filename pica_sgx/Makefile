@@ -14,13 +14,6 @@ MYINCLUDE = -I/opt/intel/sgxssl/include \
 	-I/usr/include/tss2 \
 	-I/usr/include/json-c
 
-#-I/opt/intel/sgxsdk/SampleCode/SampleAttestedTLS/sgx_socket/include \
-#-I/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteVerification/sgxssl/openssl_source/openssl-3.1.6/include/ \
-#	-I/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteVerification/sgxssl/openssl_source/openssl-3.1.6/
-##	-I/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteVerification/sgxssl/Linux/package/include
-#	-I/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteVerification/sgxssl/Linux/sgx/fips_test/trusted/ \
-#	-I/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteVerification/sgxssl/openssl_source/openssl-3.1.6-source-fips
-#
 # ==== User-configurable ====
 # SGX SDK path. If not set, try common default.
 SGX_SDK ?= /opt/intel/sgxsdk
@@ -43,7 +36,6 @@ SGX_LIBRARY_PATH := $(SGX_SDK)/lib64
 
 SGX_HOSTINCLUDE = -I$(SGX_SDK)/include
 
-
 SGX_MYDCAPLIBRARY_PATH=/home/ishikawa/work/linux-sgx/external/dcap_source/QuoteGeneration/build/linux
 SGX_MYHOSTLIBRARY_PATH=/home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgxssl/Linux/package/lib64
 
@@ -64,17 +56,6 @@ ENCLAVE_TRUSTED_CFLAGS := -O2 -g -nostdinc -fvisibility=hidden -fPIC \
   $(MYINCLUDE) $(MYCOPTION) \
   -fno-builtin-printf -fno-builtin-perror
 
-#ENCLAVE_TRUSTED_LDFLAGS := -Wl,--no-undefined -nostdlib -nodefaultlibs \
-#  -nostartfiles -L$(SGX_LIBRARY_PATH) -Wl,--whole-archive -lsgx_trts \
-#  -Wl,--no-whole-archive -Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx \
-#  -lsgx_tcxx -lsgx_tcrypto -Wl,--end-group \
-#  -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
-#  -Wl,-z,relro,-z,now,-z,noexecstack \
-#  -Wl,-pie,-eenclave_entry -Wl,--export-dynamic
-
-#  -L$(SGX_MYSSL_PATH) -lssl -lcrypto
-#  -Wl,--no-whole-archive -Wl,--start-group -lsgx_tstdc
-##
 ENCLAVE_TRUSTED_LDFLAGS := -Wl,--no-undefined -nostdlib -nodefaultlibs \
   -nostartfiles -L$(SGX_LIBRARY_PATH) -Wl,--whole-archive -lsgx_trts \
   -L$(SGX_MYSSL_PATH) -lsgx_tsgxssl_ssl -lsgx_tsgxssl \
@@ -178,8 +159,17 @@ $(HOST_CLIENT_BIN): $(UNTRUSTED_CLIENT_OBJS)
 showconf: showconf.c Enclave/libpica.c
 	cc -I/usr/include/json-c  -g -O2 -o showconf showconf.c Enclave/libpica.c ../murmur3/murmur3.o -ljson-c
 
-run-pica:
-	./host -r
+#
+#
+#
+run-pica-reg:
+	./host -r pica.conf -D /tmp/sock-tpmd-daemon
+run-pica-reg2:
+	./host -r pica.conf -D /tmp/sock-tpmd-daemon2
+run-pica-exe:
+	./host -D 
+#
+#
 clean:
 	$(RM) $(TRUSTED_SERVER_OBJS) $(UNTRUSTED_SERVER_OBJS) \
 	 $(TRUSTED_CLIENT_OBJS) $(UNTRUSTED_CLIENT_OBJS) \

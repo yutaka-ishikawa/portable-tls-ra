@@ -1,3 +1,10 @@
+#ifndef DEBUG
+#define DEBUG	if (dflag)
+#endif
+#ifndef VERBOSE
+#define VERBOSE	if (vflag)
+#endif
+
 #define PICA_ENT_CONF_PROCINFO	1 /* from conf file */
 #define PICA_ENT_FRESH_PROCINFO	2 /* from Attester Daemon */
 #define PICA_ENT_CONF_POLICY	3 /* from policy file */

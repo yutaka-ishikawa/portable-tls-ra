@@ -309,7 +309,7 @@ reg_hashtable(int which, void *addr, const char *path)
 {
     uint32_t	hash = myhash(path);
 
-    printf("%s: path: %s hash=0x%x\n", __func__, path, hash);
+    //printf("%s: path: %s hash=0x%x\n", __func__, path, hash);
     if (pica_htable[hash].hash == 0) {
 	pica_htable[hash].hash = hash;
 	pica_htable[hash].hentry.type = which;
