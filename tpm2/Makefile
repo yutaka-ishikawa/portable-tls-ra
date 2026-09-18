@@ -103,6 +103,8 @@ quote_esys: quote_esys.c
 
 run-daemon:
 	sudo ./tpmdaemon /tmp/sock-tpmd-daemon
+run-daemon2:
+	sudo ./tpmdaemon /tmp/sock-tpmd-daemon2
 run-sealtest:
 	echo "Hello world" >plain.txt
 	./sealtest -s -i ./plain.txt -o ./cipher.txt
