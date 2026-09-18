@@ -1,0 +1,20 @@
+0) This directory contains
+     MEMO.txt
+     ak_pub.pem     # copy it to ../pica_sgx/
+     policy.json    # a policy example. copy it to ../pica_sgx and edit it
+     ex-policy.json # a policy example
+1) Builindg a test program under the pica_sgx directory
+   See pica_sgx/README.md
+2) Builindg the tpmdaemon under the tpm2 directory
+   $ cd tpm2
+   $ make
+
+3) test run
+   shell for daemon:
+       tpm2$ make run-daemon2
+   shell for pica test:
+       pica_sgx$  make run-pica-reg2
+       pica_sgx$  make run-pica-exe2
+
+
+   

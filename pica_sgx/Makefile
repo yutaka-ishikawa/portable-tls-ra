@@ -167,7 +167,9 @@ run-pica-reg:
 run-pica-reg2:
 	./host -r pica.conf -D /tmp/sock-tpmd-daemon2
 run-pica-exe:
-	./host -D 
+	./host -D  /tmp/sock-tpmd-daemon
+run-pica-exe2:
+	./host -D  /tmp/sock-tpmd-daemon2
 #
 #
 clean:
