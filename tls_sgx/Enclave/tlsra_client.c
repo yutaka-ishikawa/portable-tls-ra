@@ -226,6 +226,19 @@ main(int argc, char **argv)
     printf("end sec(%d) nsec(%d)\n", et_sec, et_nsec);
     lat =  time_to_msec(st_sec, st_nsec, et_sec, et_nsec);
     printf("latency(msec): %f\n", lat);
+#define MEASURE_KEYPAIR /* FIXME: temporal hacking */
+#ifdef MEASURE_KEYPAIR
+    {
+	extern int64_t	mkp_st_sec, mkp_st_nsec, mkp_et_sec, mkp_et_nsec;
+	float	cost;
+	printf("keypair generation:start sec:(%d) nsec(%d)\n",
+	       mkp_st_sec, mkp_st_nsec);
+	printf("keypair generation: end sec(%d) nsec(%d)\n",
+	       mkp_et_sec, mkp_et_nsec);
+	cost = time_to_msec(mkp_st_sec, mkp_st_nsec, mkp_et_sec, mkp_et_nsec);
+	printf("Keypair generation time(msec): %f\n", cost);
+    }
+#endif /* MEASURE_KEYPAIR */
 
     /* showing nonces of both client and server */
     VERBOSE {

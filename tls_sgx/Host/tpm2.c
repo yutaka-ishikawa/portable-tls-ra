@@ -236,7 +236,7 @@ ocall_make_tpm2_quote(uint8_t *nonce, int nsize, size_t qbsize,
     }
 
     /* get self measurement */
-    sha256_pid(pid, apphash, &usize);
+    sha256_pid(pid, apphash, &usize, 0, 0);
 
     /* app-hash || nonce */
     rc = hash_extend_sha256(apphash, nonce, newhash);
