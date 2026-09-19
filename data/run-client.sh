@@ -1,6 +1,6 @@
 #!/bin/bash
 CLIENT_CORE=10
-CLIENT_LOG=../data/MEASURE-CLIENT.txt
+CLIENT_LOG=../data/MEASURE-CLIENT_$(date +%Y%m%d_%H%M%S).txt
 CLIENT_CMD=./host_client
 
 echo "Client Core: " $CLIENT_CORE > $CLIENT_LOG

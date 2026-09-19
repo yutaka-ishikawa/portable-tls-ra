@@ -321,7 +321,6 @@ ocall_getclocktime(int64_t *sec, int64_t *nsec)
 {
     struct timespec ts;
 
-    fprintf(stderr, "%s: CALLED\n", __func__);
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
 	perror("ocall_getclocktime");
 	*sec = 0;

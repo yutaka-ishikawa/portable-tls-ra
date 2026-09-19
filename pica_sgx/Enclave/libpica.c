@@ -468,6 +468,7 @@ check_ichain(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
 	for (j = 0; j < ccount; j++) {
 	    if (!strcmp(cp, chain[j])) goto found;
 	}
+	fprintf(stderr, "%s: Not found=%s\n", __func__, cp);
 	rc = 0; goto ext;
     found:
     }

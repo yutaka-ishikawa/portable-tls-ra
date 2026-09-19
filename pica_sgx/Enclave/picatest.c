@@ -35,11 +35,122 @@ struct timespec;
 #define PICA_DAEMON_PATH	"/tmp/sock-tpmd-daemon"
 
 int	dflag = 0;
+int	eflag = 0;
 int	vflag = 0;
 int	rflag = 0;
 char	*pol_path = PICA_POLICY_PATH;
 char	*pconf_path = PICA_CONF_PATH;
 char	*pdaemon_path = PICA_DAEMON_PATH;
+
+#define TPM2_CALL(lbl, rc, command)	\
+do {					\
+    rc = command;			\
+    if (rc != TSS2_RC_SUCCESS) {	\
+	tss_error(#command, rc);	\
+        goto lbl;			\
+    }					\
+} while(0)
+
+static float
+time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
+{
+    int64_t sec = et_sec - st_sec;
+    int64_t nsec = et_nsec - st_nsec;
+    double msec;
+    printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
+    msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
+    return (float) msec;
+}
+
+static void
+getclocktime(int64_t *sec, int64_t *nsec)
+{
+    ocall_getclocktime(sec, nsec);
+}
+
+static void
+tss_error(const char *cmd, TSS2_RC rc)
+{
+    const char	*message = Tss2_RC_Decode(rc);
+    fprintf(stderr, "%s failed: 0x%x (%s)\n",  cmd, rc,
+	    (message == NULL) ? "unknown TSS2 error" : message);
+}
+
+static int
+hash_extend_sha256(const uint8_t *old_hash, const uint8_t *digest, uint8_t *new_hash)
+{
+    EVP_MD_CTX	*ctx;
+    uint32_t	len = 0;
+    int rc = -1;
+
+    SSL_CALLP(err0, ctx, EVP_MD_CTX_new());
+    SSL_CALL(err1, rc, EVP_DigestInit_ex(ctx, EVP_sha256(), NULL));
+    /* Hash(old_hash || digest) */
+    SSL_CALL(err1, rc, EVP_DigestUpdate(ctx, old_hash, SHA256_DIGEST_LENGTH));
+    SSL_CALLP(err1, rc, EVP_DigestUpdate(ctx, digest, SHA256_DIGEST_LENGTH));
+    SSL_CALL(err1, rc, EVP_DigestFinal_ex(ctx, new_hash, &len));
+    if (len == SHA256_DIGEST_LENGTH) {
+	rc = 0;
+    } else {
+	fprintf(stderr, "%s: size is not %d(SHA256_DIGEST_LENGTH)\n", __func__, SHA256_DIGEST_LENGTH);
+    }
+err1:
+    EVP_MD_CTX_free(ctx);
+err0:
+    return rc;
+}
+
+static int
+comp_pcr_selection(const TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b)
+{
+    int	i;
+    VERBOSE fprintf(stderr, "%s: count(%d) count(%d)\n", __func__, a->count, b->count);
+    if (a->count != b->count)  return -1;
+    for (i = 0; i < a->count; i++) {
+        const TPMS_PCR_SELECTION *sa = &a->pcrSelections[i];
+        const TPMS_PCR_SELECTION *sb = &b->pcrSelections[i];
+        if (sa->hash != sb->hash)  return -1;
+        if (sa->sizeofSelect != sb->sizeofSelect) return -1;
+        if (memcmp(sa->pcrSelect, sb->pcrSelect, sa->sizeofSelect) != 0) return -1;
+    }
+    return 0;
+}
+
+void
+__assert_fail(const char *expr, const char *fname, unsigned int line, char *func)
+{
+    fprintf(stderr, "expression %s fails in func: %s at line %d in file: %s\n",
+	    expr, fname, line, func);
+}
+
+static void
+show_tpm2quote_info(const char *msg, TPMS_QUOTE_INFO *qinfo)
+{
+    TPML_PCR_SELECTION	*pcrSelect = &qinfo->pcrSelect;
+    TPM2B_DIGEST	*pcrDigest = &qinfo->pcrDigest;
+    int	i;
+
+    fprintf(stderr, "*********** TPM2 Quote (%s) ************\n", msg);
+    fprintf(stderr, "\tTPML_PCR_SECELCTION: count(%d)\n", pcrSelect->count);
+    for (i = 0; i < pcrSelect->count; i++) {
+	TPMS_PCR_SELECTION	*sel = &pcrSelect->pcrSelections[i];
+	fprintf(stderr, "\thash = 0x%04x\n", sel->hash);
+	fprintf(stderr, "\tsizeofSelect = %u\n", sel->sizeofSelect);
+	fprintf(stderr, "\tSelected PCRs:");
+	for (UINT32 pcr = 0;  pcr < sel->sizeofSelect * 8;  pcr++) {
+	    if (sel->pcrSelect[pcr / 8] & (1 << (pcr % 8))) {
+		fprintf(stderr, " %u", pcr);
+	    }
+	}
+	fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "\tDigest(size = %d): ", pcrDigest->size);
+    for (i = 0; i < pcrDigest->size; i++) {
+	fprintf(stderr, "%02x:", pcrDigest->buffer[i]);
+    }
+    fprintf(stderr, "\n");
+}
+
 
 static void
 show_procinfo(struct procinfo *cpif, int proc_cnt)
@@ -293,9 +404,9 @@ err:
  *	0 : Verify Success
  *	-1: Verify Failed
  */
-static int
+int
 verify_tpm2_quote(const uint8_t *s_quoted, int sq_size,
-		  const TPMT_SIGNATURE *sig, EVP_PKEY *ak_pubkey)
+		  const TPMT_SIGNATURE *sig, EVP_PKEY *ak_pubkey, uint8_t *udata)
 {
     TPMI_ALG_HASH	hash_alg;
     const EVP_MD	*md;
@@ -368,17 +479,73 @@ verify_tpm2_quote(const uint8_t *s_quoted, int sq_size,
         goto err;
     }
     trc = EVP_DigestVerifyFinal(mdctx, sig_data, sig_size);
-    if (trc == 1) {
-	VERBOSE {
-	    fprintf(stderr, "TPM2 Quote signature: VALID\n");
+    if (trc <= 0) {
+	if (trc == 0) {
+	    VERBOSE fprintf(stderr, "TPM2 Quote signature: INVALID\n");
+	} else {
+	    VERBOSE fprintf(stderr, "OpenSSL signature verification error\n");
 	}
+	rc = -1;
+    }
+    VERBOSE fprintf(stderr, "TPM2 Quote signature: VALID\n");
+    /*
+     * Checking PCR registers
+     */
+    {
+	TPMS_ATTEST	tpm_atst;
+	TPMS_ATTEST	reg_atst;
+	const char	*fname = "reg_quote.bin";
+	int	fd;
+	long	sz, rsz;
+	uint8_t	*ser_qt;
+	size_t	off = 0;
+	int	trc;
+	TPMS_QUOTE_INFO	*qinfo_peer, *qinfo_reg;
+
+	/* unmarshallng TPM Quote from Attester Daemon */
+	TPM2_CALL(err, trc,
+		  Tss2_MU_TPMS_ATTEST_Unmarshal(s_quoted, (size_t)sq_size,
+						&off, &tpm_atst));
+	if (tpm_atst.type != TPM2_ST_ATTEST_QUOTE) {
+	    fprintf(stderr, "%s: Data from Attester Daemon is not a TPM2 quote\n", __func__);
+	    goto err;
+	}
+
+	ocall_pica_fsize(fname, &sz, &fd);
+	if (sz <= 0) {
+	    fprintf(stderr, "Cannot open a file of valid PCRs: %s\n", fname);
+	    goto err;
+	}
+	ser_qt = malloc(sz);
+	ocall_pica_fread(fd, ser_qt, sz, &rsz);
+	if (rsz != sz) {
+	    fprintf(stderr, "Cannot read the entire data of %s file.\n", fname);
+	    rc = -1; goto err;
+	}
+	/*
+	 * Reference:
+	 */
+	off = 0;
+	TPM2_CALL(err, trc,
+		  Tss2_MU_TPMS_ATTEST_Unmarshal(ser_qt, (size_t)sz,
+						&off, &reg_atst));
+	if (reg_atst.type != TPM2_ST_ATTEST_QUOTE) {
+	    fprintf(stderr, "%s: The %s file is not a TPM2 quote\n", __func__, fname);
+	    goto err;
+	}
+	qinfo_reg = &reg_atst.attested.quote;
+	qinfo_peer = &tpm_atst.attested.quote;
+	VERBOSE {
+	    show_tpm2quote_info("Registered", qinfo_reg);
+	}
+	if (comp_pcr_selection(&qinfo_reg->pcrSelect,
+			       &qinfo_peer->pcrSelect) != 0) {
+	    fprintf(stderr, "%s: PCRregs are not identical\n", __func__);
+	    goto err;
+	}
+	/* user data is copied */
+	memcpy(udata, tpm_atst.extraData.buffer, 32);
 	rc = 0;
-    } else if (trc == 0) {
-	VERBOSE {
-	    fprintf(stderr, "TPM2 Quote signature: INVALID\n");
-	}
-    } else {
-	fprintf(stderr, "OpenSSL signature verification error\n");
     }
 err:
     EVP_MD_CTX_free(mdctx);
@@ -412,9 +579,13 @@ err:
 
 /*
  * TPM2 quote
+ *      cbor map: "quote", "sign", "app-hash"
+ *		the value of "app-hash" is copied to qdate
+ *		udata is copied at verify_tpm2_quote()
+ *			i.e., the value of tpm_atst.extraData.buffer
  */
 static int
-handle_tpm2_quote(cbor_item_t *item)
+handle_tpm2_quote(cbor_item_t *item, uint8_t *qdata, uint8_t *udata)
 {
     int	rc = 0;
     cbor_item_t	*cmap = unpack_sercbor(item);
@@ -456,6 +627,12 @@ handle_tpm2_quote(cbor_item_t *item)
 		Tss2_MU_TPMT_SIGNATURE_Unmarshal(sig_body, sig_size, &off,
 						 &tpm_sig);
 	    } else if (!strncmp("app-hash", cp, clen)) {
+		/* picainfo | nonce */
+		uint8_t	*body = cbor_bytestring_handle(val);
+		int	bsz = cbor_bytestring_length(val);
+		memcpy(qdata, body, bsz);
+	    } else {
+		printf("%s: Unrecogized key: %.*s\n", __func__, clen, cp);
 	    }
 	}
 	if (s_quote) {
@@ -479,7 +656,7 @@ handle_tpm2_quote(cbor_item_t *item)
 		fprintf(stderr, "The %s file is not a PEM file.\n", fname);
 		rc = -1; goto err;
 	    }
-	    rc = verify_tpm2_quote(s_quote, s_siz, &tpm_sig, ak_pubkey);
+	    rc = verify_tpm2_quote(s_quote, s_siz, &tpm_sig, ak_pubkey, udata);
 	    if (rc < 0) {
 		VERBOSE fprintf(stderr, "%s: Verify Failed\n", __func__);
 	    }
@@ -566,7 +743,7 @@ getoption(int argc, char **argv)
 {
     int	i;
     for (i = 1; i < argc; i++) {
-	printf("argv[%d] = %s\n", i, argv[i]);
+	//printf("argv[%d] = %s\n", i, argv[i]);
 	if (argv[i][0] == '-') {
 	    switch (argv[i][1]) {
 	    case 'd':
@@ -581,8 +758,14 @@ getoption(int argc, char **argv)
 	    case 'p': /* policy file */
 		OPT_GET_STRVAL(pol_path, 1024, i, argc, argv, err);
 		break;
+	    case 'e': /* skip pica */
+	    case 'E': /* skip pica */
+		eflag = 1;
+		break;
 	    case 'v':
 		vflag = 1; printf("vflag is set\n"); break;
+	    default:
+		printf("unknown option: %s\n", argv[i]);
 	    }
 	} else {
 	    break;
@@ -615,12 +798,18 @@ main(int argc, char **argv)
     int		verified = 0;
     int	i;
     int		rc = 0;
+    int64_t	st_sec, st_nsec, et_sec, et_nsec;
 
     DEBUG printf("%s: invoked\n", __func__);
     rc = getoption(argc, argv);
     if (rc < 0) {
 	return -1;
     }
+
+    if (eflag) { /* just return */
+	return 0;
+    }
+    getclocktime(&st_sec, &st_nsec);
     if (rflag) { /* registering procinfo for configuration */
 	printf("!!!!!! REGISTER MODE !!!!!!!\n");
     } else { /* reading procinfo from conf file */
@@ -680,13 +869,11 @@ main(int argc, char **argv)
         return -1;
     }
     memset(measure, 0, msz);
-    printf("calling ocall_pica_measure with buf size = %ld Byte\n", msz);
     sret = ocall_pica_measure(nonce, measure, sizeof(measure), &msz, pdaemon_path);
     if (sret != SGX_SUCCESS) {
 	printf("%s: ocall_pica_measure error sret=0x%x\n", __func__, sret);
 	return -1;
     }
-    printf("measure size = %ld Byte\n", msz);
     /*
      * cbor map:  0: tpm2_quote, 1:pica measures
      */
@@ -705,6 +892,10 @@ main(int argc, char **argv)
         goto err;
     }
     {
+	uint8_t	capphash[32]; /* "apphash-hash" in claims */
+	uint8_t	udata[32];
+	uint8_t	apphash[32];
+	uint8_t	picahash[32];
 	struct cbor_pair *cpair = cbor_map_handle(cmap);
 	int	i;
 
@@ -716,12 +907,21 @@ main(int argc, char **argv)
 	    size_t	clen = cbor_string_length(key);
 	    if (key && cbor_isa_string(key) && val) {
 		if (!strncmp("tpm2_quote", cp, clen)) {
-		    if (handle_tpm2_quote(val) == 0) {
+		    /* "app-hash" in claims  */
+		    memset(capphash, 0, sizeof(capphash));
+		    if (handle_tpm2_quote(val, capphash, udata) == 0) {
+			/* sign verification */
 			verified |= VERIFY_TPM2_QUOTE;
 		    }
 		} else if (!strncmp("pica", cp, clen)) {
 		    int	entries;
 		    struct procinfo *pinfo = NULL;
+		    uint8_t	*pica_bdy = cbor_bytestring_handle(val);
+		    size_t	pica_sz = cbor_bytestring_length(val);
+
+		    /* */
+		    SHA256(pica_bdy, pica_sz, picahash);
+		    rc = hash_extend_sha256(picahash, nonce, apphash);
 		    entries = handle_pica(val, &pinfo);
 		    if (entries > 0 && rflag) {
 			/* registration in configuration file */
@@ -738,10 +938,28 @@ main(int argc, char **argv)
 	    }
 	}
 	if (rflag) goto ext;
+	/*
+	 * Here we have the following hash values:
+	 *	nonce: generated here
+	 *	capphash: apphash in claims
+	 *	udata(hash): in TPM2 quote data
+	 *	apphash: calulcation of HASH(nonce || picahash)
+	 *	Must be apphash == udata == capphash
+	 */
+	VERBOSE {
+	    dump("@@@@@@@ nonce: ", nonce, 32);
+	    dump("@@@@@@@ udata(hash): ", udata, 32);
+	    dump("@@@@@@@ apphash: ", apphash, 32);
+	    dump("@@@@@@@ \"app-hash\": ", capphash, 32);
+	    dump("@@@@@@@ picapphash: ", picahash, 32);
+	}
+	
+	if (!memcmp(apphash, udata, 32) && !memcmp(capphash, picahash, 32)) {
+	    verified |= VERIFY_TPM2_FRESH;
+	}
 	/* proc_fresh is generated from Attester Daemon */
 	/* The last entry is the client binary */
 	mybinary = &fresh_pinfo[fresh_pent - 1];
-	printf("************* Now Verification for PICA ******************\n");
 	// show_procinfo(mybinary, 1);
 	/*
 	 * 1) Invocation Chain Verification
@@ -750,7 +968,6 @@ main(int argc, char **argv)
 	verified |= verify_binaries(fresh_pinfo, fresh_pent);
 	/* Seaching a policy for mybinary */
 	pstmt = find_policy(&ppol, mybinary);
-	printf("Policy pstmt(%p)\n", pstmt);
 	if (!pstmt) goto ext;
 	printf("\teffect: %s\n",
 	       pstmt->effect == PICA_ALLOW ? "allow" : "deny");
@@ -777,7 +994,8 @@ main(int argc, char **argv)
 	/*
 	 * All verification results:
 	 */
-	printf("Verification Results: TPM2_Quote %s, Binaries %s, Chain %s, UIDs %s\n",
+	printf("Verification Results: Freshness %s, TPM2_Quote %s, Binaries %s, Chain %s, UIDs %s\n",
+	       (verified & VERIFY_TPM2_FRESH) ? "Verified" : "Failed",
 	       (verified & VERIFY_TPM2_QUOTE) ? "Verified" : "Failed",
 	       (verified & VERIFY_PICA_BINARIES) ? "Verified" : "Failed",
 	       (verified & VERIFY_PICA_CHAIN) ? "Verified" : "Failed",
@@ -785,6 +1003,15 @@ main(int argc, char **argv)
 	if (VERIFIED_ALL(verified)) {
 	    show_actions(pstmt);
 	}
+    }
+    getclocktime(&et_sec, &et_nsec);
+    {
+	double lat = time_to_msec(st_sec, st_nsec, et_sec, et_nsec);
+	printf("***********************************\n");
+	printf("start sec:(%d) nsec(%d)\n", st_sec, st_nsec);
+	printf("end sec(%d) nsec(%d)\n", et_sec, et_nsec);
+	printf("latency(msec): %f\n", lat);
+	printf("***********************************\n");
     }
 ext:
 err:

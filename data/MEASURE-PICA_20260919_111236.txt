@@ -1,0 +1,813 @@
+Pica Core:  9
+!!!!!!!!!!!!!!! PICA !!!!!!!!!!!!!!
+**************************
+1
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(0.000000) nsec(281979776.000000)
+***********************************
+start sec:(36011887) nsec(193199252)
+end sec(36011887) nsec(475179020)
+latency(msec): 281.979767
+***********************************
+sec(0.000000) nsec(282293184.000000)
+*********Host --> Enclave**********
+start sec:(36011887) nsec(192936894)
+end sec(36011887) nsec(475230066)
+latency(msec): 282.293182
+***********************************
+**************************
+2
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(0.000000) nsec(280157536.000000)
+***********************************
+start sec:(36011887) nsec(517017071)
+end sec(36011887) nsec(797174607)
+latency(msec): 280.157532
+***********************************
+sec(0.000000) nsec(280462976.000000)
+*********Host --> Enclave**********
+start sec:(36011887) nsec(516761645)
+end sec(36011887) nsec(797224628)
+latency(msec): 280.462982
+***********************************
+**************************
+3
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(1.000000) nsec(-718812352.000000)
+***********************************
+start sec:(36011887) nsec(837989311)
+end sec(36011888) nsec(119176989)
+latency(msec): 281.187683
+***********************************
+sec(1.000000) nsec(-718507584.000000)
+*********Host --> Enclave**********
+start sec:(36011887) nsec(837735635)
+end sec(36011888) nsec(119228040)
+latency(msec): 281.492401
+***********************************
+**************************
+4
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(0.000000) nsec(281261952.000000)
+***********************************
+start sec:(36011888) nsec(159915159)
+end sec(36011888) nsec(441177102)
+latency(msec): 281.261932
+***********************************
+sec(0.000000) nsec(281561216.000000)
+*********Host --> Enclave**********
+start sec:(36011888) nsec(159666973)
+end sec(36011888) nsec(441228205)
+latency(msec): 281.561218
+***********************************
+**************************
+5
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(0.000000) nsec(281095520.000000)
+***********************************
+start sec:(36011888) nsec(482060546)
+end sec(36011888) nsec(763156064)
+latency(msec): 281.095520
+***********************************
+sec(0.000000) nsec(281404096.000000)
+*********Host --> Enclave**********
+start sec:(36011888) nsec(481802571)
+end sec(36011888) nsec(763206665)
+latency(msec): 281.404083
+***********************************
+**************************
+6
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(1.000000) nsec(-718563776.000000)
+***********************************
+start sec:(36011888) nsec(803746576)
+end sec(36011889) nsec(85182808)
+latency(msec): 281.436218
+***********************************
+sec(1.000000) nsec(-718265728.000000)
+*********Host --> Enclave**********
+start sec:(36011888) nsec(803498083)
+end sec(36011889) nsec(85232330)
+latency(msec): 281.734253
+***********************************
+**************************
+7
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(0.000000) nsec(280474400.000000)
+***********************************
+start sec:(36011889) nsec(125658530)
+end sec(36011889) nsec(406132919)
+latency(msec): 280.474396
+***********************************
+sec(0.000000) nsec(280775392.000000)
+*********Host --> Enclave**********
+start sec:(36011889) nsec(125407291)
+end sec(36011889) nsec(406182680)
+latency(msec): 280.775391
+***********************************
+**************************
+8
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(0.000000) nsec(281405696.000000)
+***********************************
+start sec:(36011889) nsec(446836655)
+end sec(36011889) nsec(728242352)
+latency(msec): 281.405701
+***********************************
+sec(0.000000) nsec(281704000.000000)
+*********Host --> Enclave**********
+start sec:(36011889) nsec(446589034)
+end sec(36011889) nsec(728293040)
+latency(msec): 281.704010
+***********************************
+**************************
+9
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(1.000000) nsec(-718983232.000000)
+***********************************
+start sec:(36011889) nsec(770131419)
+end sec(36011890) nsec(51148182)
+latency(msec): 281.016754
+***********************************
+sec(1.000000) nsec(-718680640.000000)
+*********Host --> Enclave**********
+start sec:(36011889) nsec(769879577)
+end sec(36011890) nsec(51198921)
+latency(msec): 281.319336
+***********************************
+**************************
+10
+**************************
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$ Talking to Atester Daemon (32768 B) (/tmp/sock-tpmd-daemon) 
+$     ocall_pica_measure
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+!!!!!! configuration read !!!!!!
+[0]	path: /usr/bin/screen
+	ruid: 1001
+	digest: 
+dc:c2:f0:ba:ed:89:74:71:5a:11:77:34:bc:77:6c:9f:4a:fa:31:bd:bd:05:34:90:7d:09:a5:b7:51:eb:5a:d2:
+[1]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[2]	path: /usr/bin/emacs-gtk
+	ruid: 1001
+	digest: 
+1d:ec:60:71:17:1d:50:7f:c1:f6:ee:18:7d:a9:dd:10:16:a3:25:f0:5c:d5:1b:12:02:2a:35:77:fb:9b:78:36:
+[3]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[4]	path: /usr/bin/bash
+	ruid: 1001
+	digest: 
+bc:59:45:fe:b8:bd:26:20:3e:bf:af:ea:5c:e1:87:8b:b2:e3:2c:b8:fb:50:ab:7a:e3:95:cf:b1:e1:aa:ae:f1:
+[5]	path: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	ruid: 1001
+	digest: 
+9a:00:a2:a9:dc:ca:fe:44:01:92:79:f5:4a:df:ab:5a:c5:85:f1:bc:ae:d8:16:47:f8:c4:ea:e8:f8:af:a1:aa:
+!!!!!! policy read !!!!!!
+verify_binaries (ent=6):
+	Found and verified: /usr/bin/screen
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/emacs-gtk
+	Found and verified: /usr/bin/bash
+	Found and verified: /usr/bin/bash
+	Found and verified: /home/ishikawa/work/portable-tls-ra/pica_sgx/host
+	effect: allow
+	uid list: 1000 1001 1002
+	action list: *
+	invocation chain:
+		/usr/bin/make
+		/usr/bin/screen
+		/usr/bin/emacs-gtk
+		/usr/sbin/sshd
+		/usr/bin/bash
+		/home/ishikawa/work/portable-tls-ra/pica_sgx/host
+Verification Results: Freshness Verified, TPM2_Quote Verified, Binaries Verified, Chain Verified, UIDs Verified
+Actions: *, 
+sec(0.000000) nsec(281291296.000000)
+***********************************
+start sec:(36011890) nsec(91892628)
+end sec(36011890) nsec(373183925)
+latency(msec): 281.291290
+***********************************
+sec(0.000000) nsec(281594592.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(91640424)
+end sec(36011890) nsec(373235013)
+latency(msec): 281.594574
+***********************************
+!!!!!!!!!!!!!!! Without PICA !!!!!!!!!!!!!!
+**************************
+1
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(245469.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(415117264)
+end sec(36011890) nsec(415362733)
+latency(msec): 0.245469
+***********************************
+**************************
+2
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(239999.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(454704154)
+end sec(36011890) nsec(454944153)
+latency(msec): 0.239999
+***********************************
+**************************
+3
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(247800.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(494420242)
+end sec(36011890) nsec(494668042)
+latency(msec): 0.247800
+***********************************
+**************************
+4
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(251776.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(533883363)
+end sec(36011890) nsec(534135139)
+latency(msec): 0.251776
+***********************************
+**************************
+5
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(245793.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(573544902)
+end sec(36011890) nsec(573790695)
+latency(msec): 0.245793
+***********************************
+**************************
+6
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(242657.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(612042552)
+end sec(36011890) nsec(612285209)
+latency(msec): 0.242657
+***********************************
+**************************
+7
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(244699.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(650417925)
+end sec(36011890) nsec(650662624)
+latency(msec): 0.244699
+***********************************
+**************************
+8
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(251370.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(688868598)
+end sec(36011890) nsec(689119968)
+latency(msec): 0.251370
+***********************************
+**************************
+9
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(241693.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(727209412)
+end sec(36011890) nsec(727451105)
+latency(msec): 0.241693
+***********************************
+**************************
+10
+**************************
+***** Host *****
+(/home/ishikawa/work/portable-tls-ra/pica_sgx)
+Client Enclave
+e_main: testing printf
+sec(0.000000) nsec(244257.000000)
+*********Host --> Enclave**********
+start sec:(36011890) nsec(765534267)
+end sec(36011890) nsec(765778524)
+latency(msec): 0.244257
+***********************************

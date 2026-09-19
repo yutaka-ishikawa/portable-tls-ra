@@ -535,6 +535,7 @@ main(int argc, char **argv)
 	TPMT_SIGNATURE	tpm_sig;
 
 	/* unmarashaling quote */
+	printf("t_quote.qsize = %d\n", t_quote.qsize);
 	TPM2_CALL(err_skip, rc,
 		  Tss2_MU_TPMS_ATTEST_Unmarshal(t_quote.quote,
 						t_quote.qsize, &off,

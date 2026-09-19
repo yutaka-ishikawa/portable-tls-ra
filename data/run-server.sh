@@ -1,6 +1,6 @@
 #!/bin/bash
 SERVER_CORE=12
-SERVER_LOG=../data/MEASURE-SERVER.txt
+SERVER_LOG=../data/MEASURE-SERVER_$(date +%Y%m%d_%H%M%S).txt
 SERVER_CMD=../tls_sgx/host_server
 
 echo "Server Core: " $SERVER_CORE > $SERVER_LOG

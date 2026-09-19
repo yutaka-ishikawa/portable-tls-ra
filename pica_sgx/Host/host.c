@@ -19,6 +19,23 @@
 
 #define ENCLAVE_FILE "./enclave_client.signed.so"
 
+static float
+time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
+{
+    int64_t sec = et_sec - st_sec;
+    int64_t nsec = et_nsec - st_nsec;
+    double msec;
+    printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
+    msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
+    return (float) msec;
+}
+
+static void
+getclocktime(int64_t *sec, int64_t *nsec)
+{
+    ocall_getclocktime(sec, nsec);
+}
+
 int
 main(int argc, char** argv)
 {
@@ -30,7 +47,7 @@ main(int argc, char** argv)
     int updated = 0;
     sgx_status_t	rc;
     sgx_status_t	erc = -1;
-
+    int64_t	st_sec, st_nsec, et_sec, et_nsec;
 
     printf("***** Host *****\n(%s)\n", get_current_dir_name());
     ENCLAVE_CALL(err0, rc,
@@ -39,9 +56,22 @@ main(int argc, char** argv)
 		 "sgx_create_enclave failed: 0x%x\n", rc);
     //getoption(argc, argv);
     makeargs(argc, argv, &argpos, &bp, &blen);
+
+    getclocktime(&st_sec, &st_nsec);
     ENCLAVE_CALL(err1, rc,
 		 e_main(eid, &erc, argc, argpos, blen, bp),
 		 "e_mail invocation failed: 0x%x\n", rc);
+    getclocktime(&et_sec, &et_nsec);
+    {
+	double lat = time_to_msec(st_sec, st_nsec, et_sec, et_nsec);
+	printf("*********Host --> Enclave**********\n");
+	printf("start sec:(%ld) nsec(%ld)\n", st_sec, st_nsec);
+	printf("end sec(%ld) nsec(%ld)\n", et_sec, et_nsec);
+	printf("latency(msec): %f\n", lat);
+	printf("***********************************\n");
+    }
+
+    
     if (erc != 0) {
         fprintf(stderr, "e_main failed: 0x%x\n", erc);
     }

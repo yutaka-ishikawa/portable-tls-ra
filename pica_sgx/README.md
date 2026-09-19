@@ -49,5 +49,27 @@ $ git submodule update --init --recursive
        "Binary": "/home/ishikawa/work/portable-tls-ra/pica_sgx/host",
    Line 20:
         "/home/ishikawa/work/portable-tls-ra/pica_sgx/host"
-
+# TPM evidence creation
+ $ sudo ../tpm2/get_quote 
+ The reg_quote.bin has been created.
 # Run
+1) To generate a conf file
+  $ make run-pica-reg
+ or
+  $ make run-pica-reg2
+2) Run
+  $ make run-pica-exe
+ or
+  $ make run-pica-exe2
+
+######################################
+*********Host --> Enclave**********
+start sec:(36008087) nsec(337817036)
+end sec(36008087) nsec(338075808)
+latency(msec): 0.258772
+***********************************
+*********Host --> Enclave**********
+start sec:(36008161) nsec(223333339)
+end sec(36008161) nsec(506177677)
+latency(msec): 282.844330
+***********************************

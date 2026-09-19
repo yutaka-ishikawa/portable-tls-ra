@@ -6,7 +6,7 @@ OBJS  = $(SRCS_COMMON:.c=.o)
 DEPS  = $(SRCS_COMMON:.c=.d)
 
 MYLIBS = libquote.o libsock.o libmeasurement.o libprocchain.o libcbor.o
-MYCMDS = tpmdaemon test_tpmd test_quote test_libsock measure sealtest cbortest pchaintest
+MYCMDS = tpmdaemon get_quote test_tpmd test_quote test_libsock measure sealtest cbortest pchaintest
 
 ################################
 ### SGX
@@ -86,6 +86,8 @@ test_tpmd: test_tpmd.o libquote.o libsock.o libmeasurement.o
 	cc $(CFLAGS) -o $@ $^ $(LIBS)
 test_quote: libquote.c
 	cc $(CFLAGS) -DLIBQUOTE_TEST -o $@ $^ $(LIBS)
+get_quote: get_quote.c libquote.o
+	cc $(CFLAGS) -o $@ $^ $(LIBS)
 test_libsock: libsock.c libsock.h
 	cc $(CFLAGS) -DLIBSOCK_TEST -o $@ libsock.c
 measure: libmeasurement.c

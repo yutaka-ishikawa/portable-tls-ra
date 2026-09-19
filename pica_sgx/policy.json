@@ -13,6 +13,7 @@
               "*"
 	  ],
           "InvocationChain": [
+	      "/usr/bin/make",
 	      "/usr/bin/screen",
 	      "/usr/bin/emacs-gtk",
               "/usr/sbin/sshd",

@@ -71,6 +71,7 @@ ENCLAVE_TRUSTED_LDFLAGS := -Wl,--no-undefined -nostdlib -nodefaultlibs \
   -Wl,--defsym=__ImageBase=0 \
   -lcbor -L./Enclave/external/src \
   -ltss2-mu -L../tpm2-tss/src/tss2-mu/.libs/ \
+  -ltss2-rc -L../tpm2-tss/src/tss2-rc/.libs/ \
   -ljson-c-sgx -L./ \
   -lgcc -L/usr/lib/gcc/x86_64-linux-gnu/11/
 

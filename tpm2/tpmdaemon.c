@@ -227,6 +227,8 @@ make_tpm2_pica(uint8_t *nonce, int nsize,
     
     procchain = mycbor_pack_procchain(pid, pcsz);
     SHA256(procchain, *pcsz, hash);
+    fprintf(stderr, "%s: prochhain(%ld)\n", __func__, *pcsz);
+    dump("prochain: ", hash, 32);
     /*
      * serialized quote and its size are stored in tpm2_ser and qsz
      */
@@ -406,6 +408,7 @@ tpmddaemon(const char *path)
 		    reply_attest(con, unsealed, buf, size, apphash);
 		}
 #else
+		dump("nonce from client: ", &pktp->data[0], pktp->len);
 		make_tpm2_quote_with_pid(&pktp->data[0], 32,
 					 sizeof(buf), buf, &size,
 					 apphash, usize, pid);
