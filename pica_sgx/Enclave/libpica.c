@@ -15,6 +15,7 @@ typedef int32_t uid_t;
 
 #define SHOW	if (sflag)
 int sflag = 0;
+int ppol_ver = 0;
 
 #ifdef SGXENV
 static char *
@@ -32,7 +33,15 @@ void
 picapol_show(struct pica_policy *pp)
 {
     int	i;
-    printf("Version: %s\n", pp->version);
+    switch (ppol_ver) {
+    case PICA_POLICY_V0:
+	printf("Version: V0\n"); break;
+    case PICA_POLICY_V1:
+	printf("Version: V1\n"); break;
+    default:
+	printf("Version: Unknown (%s)\n", pp->version);
+	return;
+    }
     for (i = 0; i < pp->entries; i++) {
 	struct pica_stmt *stmt = &pp->stmt[i];
 	int	j;
@@ -48,9 +57,14 @@ picapol_show(struct pica_policy *pp)
 	for (j = 0; j < stmt->act_cnt; j++) {
 	    printf("%s, ", stmt->action[j]);
 	}
-	printf("\n\tinvocation chain(%d):\n", stmt->ichn_cnt);
-	for (j = 0; j < stmt->ichn_cnt; j++) {
-	    printf("\t\t%s\n", stmt->ichain[j]);
+	printf("\n\tinvocation chain array(%d):\n", stmt->ary_cnt);
+	for (j = 0; j < stmt->ary_cnt; j++) {
+	    int	k;
+	    printf("\t\tinvocation chain(%d): [\n", stmt->iarray[j].ichn_cnt);
+	    for (k = 0; k < stmt->iarray[j].ichn_cnt; k++) {
+		printf("\t\t    %s\n", stmt->iarray[j].ichain[k]);
+	    }
+    	    printf("\t\t]\n");
 	}
     }
 }
@@ -190,28 +204,59 @@ parse_action(struct json_object *obj, struct pica_stmt *stmt)
 }
 
 /*
- * "InvocationChain": [ ... ]
+ * V0:	"InvocationChain": [ ... ]
+ * V1:	"InvocationChain": [ [ ... ], [ ... ], [ ... ] ] 
  */
 void
 parse_invchain(struct json_object *obj, struct pica_stmt *stmt)
 {
-    int	i;
+    int	i, j;
     if (!json_object_is_type(obj, json_type_array)) {
 	fprintf(stderr, "Error \"InvocationChain\" element must be array\n");
 	return;
     }
-    stmt->ichn_cnt = json_object_array_length(obj);
-    stmt->ichain = malloc(sizeof(char*)*stmt->ichn_cnt);
-    memset(stmt->ichain, 0, sizeof(char*)*stmt->ichn_cnt);
-    SHOW printf("\tInvocationChain (%d):\n", stmt->ichn_cnt);
-    for (i = 0; i < json_object_array_length(obj); i++) {
-	struct json_object *item = json_object_array_get_idx(obj, i);
-	if (!json_object_is_type(item, json_type_string)) {
-	    fprintf(stderr, "InvocationChain item must be string\n");
-	    continue;
+    if (ppol_ver == PICA_POLICY_V0) {
+	stmt->ary_cnt = 1;
+	stmt->iarray = malloc(sizeof(struct inv_array));
+	stmt->iarray[0].ichn_cnt = json_object_array_length(obj);
+	stmt->iarray[0].ichain = malloc(sizeof(char*)*stmt->iarray[0].ichn_cnt);
+	memset(stmt->iarray[0].ichain, 0, sizeof(char*)*stmt->iarray[0].ichn_cnt);
+	SHOW printf("\tInvocationChain (%d):\n", stmt->iarray[0].ichn_cnt);
+	for (i = 0; i < json_object_array_length(obj); i++) {
+	    struct json_object *item = json_object_array_get_idx(obj, i);
+	    if (!json_object_is_type(item, json_type_string)) {
+		fprintf(stderr, "InvocationChain item must be string\n");
+		continue;
+	    }
+	    SHOW printf("\t\t%s\n", json_object_get_string(item));
+	    stmt->iarray[0].ichain[i] = strdup(json_object_get_string(item));
 	}
-	SHOW printf("\t\t%s\n", json_object_get_string(item));
-	stmt->ichain[i] = strdup(json_object_get_string(item));
+    } else if (ppol_ver == PICA_POLICY_V1) {
+	stmt->ary_cnt = json_object_array_length(obj);
+	stmt->iarray = malloc(sizeof(struct inv_array)*stmt->ary_cnt);
+	for (i = 0; i < json_object_array_length(obj); i++) {
+	    struct json_object *array = json_object_array_get_idx(obj, i);
+	    stmt->iarray[i].ichn_cnt = json_object_array_length(array);
+	    stmt->iarray[i].ichain = malloc(sizeof(char*)*stmt->iarray[i].ichn_cnt);
+	    memset(stmt->iarray[i].ichain, 0, sizeof(char*)*stmt->iarray[i].ichn_cnt);
+	    SHOW printf("\tInvocationChain (%d):\n", stmt->iarray[i].ichn_cnt);
+	    if (!json_object_is_type(array, json_type_array)) {
+		fprintf(stderr, "Error \"InvocationChain\" element must be array\n");
+		return;
+	    }
+	    for (j = 0; j < json_object_array_length(array); j++) {
+		struct json_object *item = json_object_array_get_idx(array, j);
+		if (!json_object_is_type(item, json_type_string)) {
+		    fprintf(stderr, "InvocationChain item must be string\n");
+		    continue;
+		}
+		SHOW printf("\t\t%s\n", json_object_get_string(item));
+		stmt->iarray[i].ichain[j] = strdup(json_object_get_string(item));
+	    }
+	}
+    } else {
+	fprintf(stderr, "%s: internal error\n", __func__);
+	return;
     }
 }
 
@@ -270,11 +315,20 @@ json_statement(struct json_object *obj, struct pica_policy *pp)
 char	*
 json_version(struct json_object *obj)
 {
+    const char	*str;
     if (!json_object_is_type(obj, json_type_string)) {
 	fprintf(stderr, "Error \"Version\" element is not a string\n");
 	return NULL;
     }
     SHOW printf("Version: %s\n", json_object_get_string(obj));
+    str = json_object_get_string(obj);
+    if (!strcmp(str, PICA_POLICY_V0_STRING)) {
+	ppol_ver = PICA_POLICY_V0;
+    } else if (!strcmp(str, PICA_POLICY_V1_STRING)) {
+	ppol_ver = PICA_POLICY_V1;
+    } else {
+	fprintf(stderr, "Unexpected PICA policy verion\n");
+    }
     return strdup(json_object_get_string(obj));
 }
 
@@ -431,7 +485,7 @@ verify_binaries(struct procinfo *pinfo, int ent)
     int	rc = VERIFY_PICA_BINARIES;
     int	i;
 
-    printf("%s (ent=%d):\n", __func__, ent);
+    VERBOSE(VERB_VRFY_DIGEST) printf("%s (ent=%d):\n", __func__, ent);
     if (!pinfo) return 0;
     for (i = 0; i < ent; i++) {
 	cnfpinfo = find_hashtable(pinfo[i].path, PICA_ENT_CONF_PROCINFO);
@@ -442,7 +496,7 @@ verify_binaries(struct procinfo *pinfo, int ent)
 		printf("\tFound and verification fails: %s\n", pinfo[i].path);
 		rc = 0;
 	    } else {
-		printf("\tFound and verified: %s\n", pinfo[i].path);
+		VERBOSE(VERB_VRFY_DIGEST) printf("\tFound and verified: %s\n", pinfo[i].path);
 	    }
 	} else {
 	    printf("\tNot Found: %s\n", pinfo[i].path);
@@ -453,24 +507,37 @@ verify_binaries(struct procinfo *pinfo, int ent)
 }
 
 /*
- *
+ * pica_stmt: policy statement
+ * procinfo:  measured process invocatin chain
  */
 int
 check_ichain(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
 {
-    int		ccount = pstmt->ichn_cnt;
-    char	**chain = pstmt->ichain;
     int rc = VERIFY_PICA_CHAIN;
-    int	i, j;
+    int	i, j, k;
 
-    for (i = 0; i < ent; i++) {
-	char	*cp = pinfo[i].path;
-	for (j = 0; j < ccount; j++) {
-	    if (!strcmp(cp, chain[j])) goto found;
+    printf("%s: proc chain count(%d) ary_cnt(%d)\n", __func__, ent, pstmt->ary_cnt);
+    for (i = 0; i < pstmt->ary_cnt; i++) {
+	int	ccount = pstmt->iarray[i].ichn_cnt;
+	char	**chain = pstmt->iarray[i].ichain;
+	printf("%s:  ccount(%d) ent(%d)\n", __func__, ccount, ent);
+	for (j = 0; j < ent; j++) {
+	    char	*cp = pinfo[j].path;
+	    printf("%s: [%d] pchain(%s) polchain(%s)\n", __func__, j, cp, chain[j]);
+	    if (strcmp(cp, chain[j])) {
+		/* different path, error */
+		rc = 0;
+		goto ext;
+	    }
+#if 0
+	    for (k = 0; k < ccount; k++) {
+		if (!strcmp(cp, chain[k])) goto found;
+	    }
+	    /* not found */
+	    rc = 0; goto ext;
+	found:
+#endif
 	}
-	fprintf(stderr, "%s: Not found=%s\n", __func__, cp);
-	rc = 0; goto ext;
-    found:
     }
 ext:
     return rc;

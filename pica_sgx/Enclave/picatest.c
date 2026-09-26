@@ -6,6 +6,7 @@
 #include <sgx_report.h>
 #include <sgx_utils.h>
 #include <string.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdarg.h>
 struct timespec;
@@ -38,9 +39,9 @@ int	dflag = 0;
 int	eflag = 0;
 int	vflag = 0;
 int	rflag = 0;
-char	*pol_path = PICA_POLICY_PATH;
-char	*pconf_path = PICA_CONF_PATH;
-char	*pdaemon_path = PICA_DAEMON_PATH;
+char	*pol_path;
+char	*pconf_path;
+char	*pdaemon_path;
 
 #define TPM2_CALL(lbl, rc, command)	\
 do {					\
@@ -104,7 +105,7 @@ static int
 comp_pcr_selection(const TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b)
 {
     int	i;
-    VERBOSE fprintf(stderr, "%s: count(%d) count(%d)\n", __func__, a->count, b->count);
+    VERBOSE(VERB_ALL) fprintf(stderr, "%s: count(%d) count(%d)\n", __func__, a->count, b->count);
     if (a->count != b->count)  return -1;
     for (i = 0; i < a->count; i++) {
         const TPMS_PCR_SELECTION *sa = &a->pcrSelections[i];
@@ -254,6 +255,10 @@ reg_config(const char *fname, struct procinfo *pinfo, int entries)
 	cpif[i].spos = spos;
 	spos += len + 1; /* string position is updated */
 	/* fdiget */
+	VERBOSE(VERB_PICA_CONF) {
+	    printf("%s: [%d] path=%s\n", __func__, i, pinfo[i].path);
+	    printf("%s: \tcpif[%d].count=%d\n", __func__, i, cpif[i].count);
+	}
 	if (cpif[i].count > 0) {
 	    struct fdigest	*fdp_src = pinfo[i].libs;
 	    cpif[i].fpos = fpos;
@@ -481,13 +486,17 @@ verify_tpm2_quote(const uint8_t *s_quoted, int sq_size,
     trc = EVP_DigestVerifyFinal(mdctx, sig_data, sig_size);
     if (trc <= 0) {
 	if (trc == 0) {
-	    VERBOSE fprintf(stderr, "TPM2 Quote signature: INVALID\n");
+	    VERBOSE(VERB_VRFY_TPM2Q) fprintf(stderr, "TPM2 Quote signature: INVALID\n");
 	} else {
-	    VERBOSE fprintf(stderr, "OpenSSL signature verification error\n");
+	    VERBOSE(VERB_VRFY_TPM2Q) fprintf(stderr, "OpenSSL signature verification error\n");
 	}
 	rc = -1;
     }
-    VERBOSE fprintf(stderr, "TPM2 Quote signature: VALID\n");
+    if (trc == 1) {
+	VERBOSE(VERB_VRFY_TPM2Q) {
+	    fprintf(stderr, "TPM2 Quote signature: VALID\n");
+	}
+    }
     /*
      * Checking PCR registers
      */
@@ -535,7 +544,7 @@ verify_tpm2_quote(const uint8_t *s_quoted, int sq_size,
 	}
 	qinfo_reg = &reg_atst.attested.quote;
 	qinfo_peer = &tpm_atst.attested.quote;
-	VERBOSE {
+	VERBOSE(VERB_VRFY_TPM2Q) {
 	    show_tpm2quote_info("Registered", qinfo_reg);
 	}
 	if (comp_pcr_selection(&qinfo_reg->pcrSelect,
@@ -658,9 +667,9 @@ handle_tpm2_quote(cbor_item_t *item, uint8_t *qdata, uint8_t *udata)
 	    }
 	    rc = verify_tpm2_quote(s_quote, s_siz, &tpm_sig, ak_pubkey, udata);
 	    if (rc < 0) {
-		VERBOSE fprintf(stderr, "%s: Verify Failed\n", __func__);
+		VERBOSE(VERB_VRFY_TPM2Q) fprintf(stderr, "%s: Verify Failed\n", __func__);
 	    }
-	    VERBOSE fprintf(stderr, "%s: verify success!\n", __func__);
+	    VERBOSE(VERB_VRFY_TPM2Q) fprintf(stderr, "%s: verify success!\n", __func__);
 	err:
 	    if (buf) free(buf);
 	    if (ak_pubkey) EVP_PKEY_free(ak_pubkey);
@@ -734,14 +743,41 @@ usage(const char *cmd)
 
 #define OPT_GET_STRVAL(dst, len, pos, argc, argv, lbl) \
 do {						\
-    if ((pos +1) >= argc) goto lbl;		\
+    if ((pos + 1) >= argc) goto lbl;		\
     dst = strndup(argv[pos+1], len); pos++;	\
 } while(0);
+
+static uint32_t
+opt_get_xval(int *flg, int *pos, int argc, char **argv)
+{
+    char	*cp = argv[*pos+1];
+    uint32_t	val = 0;
+    int	rc;
+
+    if ((*pos + 1) >= argc
+	|| cp[0] != '0' || (cp[1] != 'x' && cp[1] != 'X')) return -1;
+    cp += 2;
+    if (*cp == '\0')  return -1;
+    while (*cp != '\0') {
+        unsigned char	ch = (unsigned char)*cp;
+        if (isdigit(ch)) {
+	    ch = ch - '0';
+	} else if (isxdigit(ch)) {
+	    ch = islower(ch) ?  (ch - 'a' + 10) : (ch - 'A' + 10);
+	}
+        val = val*16 + ch;
+	cp++;
+    }
+    *pos += 1;
+    *flg = val;
+    return rc;
+}
     
 static int
 getoption(int argc, char **argv)
 {
     int	i;
+
     for (i = 1; i < argc; i++) {
 	//printf("argv[%d] = %s\n", i, argv[i]);
 	if (argv[i][0] == '-') {
@@ -763,14 +799,18 @@ getoption(int argc, char **argv)
 		eflag = 1;
 		break;
 	    case 'v':
-		vflag = 1; printf("vflag is set\n"); break;
-	    default:
-		printf("unknown option: %s\n", argv[i]);
+		if (opt_get_xval(&vflag, &i, argc, argv) <= 0) goto err;
+		printf("vflag is set to 0x%x\n", vflag); break;
+	    case 's':
+		sflag = 1; break;
 	    }
 	} else {
 	    break;
 	}
     }
+    if (pol_path == NULL) pol_path = strndup(PICA_POLICY_PATH, sizeof(PICA_POLICY_PATH));
+    if (pconf_path == NULL) pconf_path = strndup(PICA_CONF_PATH, sizeof(PICA_CONF_PATH));
+    if (pdaemon_path == NULL) pdaemon_path = strndup(PICA_DAEMON_PATH, sizeof(PICA_DAEMON_PATH));
     return i;
 err:
     usage(argv[0]);
@@ -824,7 +864,7 @@ main(int argc, char **argv)
 	buffer = malloc(sz);
 	ocall_pica_fread(fd, buffer, sz, &wsz);
 	entries = build_conf(buffer, &procinfo);
-	VERBOSE printf("\tentries = %d\n", entries);
+	VERBOSE(VERB_ALL) printf("\tentries = %d\n", entries);
 	show_procinfo(procinfo, entries);
 	/* the allocated memory area is used, do not free */
 	for (i = 0; i < entries; i++) {
@@ -856,7 +896,7 @@ main(int argc, char **argv)
 	}
 	json_parse(jobj, &ppol);
 	free(buffer);
-	VERBOSE picapol_show(&ppol);
+	VERBOSE(VERB_PICA_POLICY) picapol_show(&ppol);
 	for (i = 0; i < ppol.entries; i++) {
 	    struct pica_stmt *stmt = &ppol.stmt[i];
 	    reg_hashtable(PICA_ENT_CONF_POLICY, stmt, stmt->exec_path);
@@ -946,7 +986,7 @@ main(int argc, char **argv)
 	 *	apphash: calulcation of HASH(nonce || picahash)
 	 *	Must be apphash == udata == capphash
 	 */
-	VERBOSE {
+	VERBOSE(VERB_ALL) {
 	    dump("@@@@@@@ nonce: ", nonce, 32);
 	    dump("@@@@@@@ udata(hash): ", udata, 32);
 	    dump("@@@@@@@ apphash: ", apphash, 32);
@@ -972,14 +1012,16 @@ main(int argc, char **argv)
 	printf("\teffect: %s\n",
 	       pstmt->effect == PICA_ALLOW ? "allow" : "deny");
 	{
-	    int i;
+	    int i, j;
 	    printf("\tuid list:");
 	    for (i = 0; i < pstmt->uid_cnt; i++) printf(" %d", pstmt->uid[i]);
 	    printf("\n\taction list:");
 	    for (i = 0; i < pstmt->act_cnt; i++) printf(" %s", pstmt->action[i]);
 	    printf("\n\tinvocation chain:\n");
-	    for (i = 0; i < pstmt->ichn_cnt; i++) {
-		printf("\t\t%s\n", pstmt->ichain[i]);
+	    for (i = 0; i < pstmt->ary_cnt; i++) {
+		for (j = 0; j < pstmt->iarray[i].ichn_cnt; j++) {
+		    printf("\t\t%s\n", pstmt->iarray[i].ichain[j]);
+		}
 	    }
 	}
 	/*

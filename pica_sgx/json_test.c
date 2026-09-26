@@ -3,9 +3,20 @@
 #include <unistd.h>
 #include <json-c/json.h>
 
+#define PICA_POLICY_V0_STRING	"PICA-2026-09-15"
+#define PICA_POLICY_V1_STRING	"PICA-2026-09-25"
+#define PICA_POLICY_V0	1
+#define PICA_POLICY_V1	2
+
 #define PICA_NONE	0
 #define PICA_ALLOW	1
 #define PICA_DENY	2
+
+struct inv_array {
+    int		ichn_cnt;	/* invocation chain count */
+    char	**ichain;	/* array of invocation chain */
+};
+
 struct pica_stmt {
     char	*sid;		/* sid */
     int		effect;		/* allow or deny */
@@ -14,8 +25,8 @@ struct pica_stmt {
     int		*uid;		/* uid array */
     int		act_cnt;	/* action count */
     char	**action;	/* function names */
-    int		ichn_cnt;	/* invocation chain count */
-    char	**ichain;	/* invocation chain */
+    int		ary_cnt;	/* array count */
+    struct inv_array *iarray;	/* array of invocation chain */
 };
 
 struct pica_policy {
@@ -26,14 +37,22 @@ struct pica_policy {
 
 #define SHOW	if (sflag)
 
-int sflag = 0;
-
+int	sflag = 0;
+int	ver = 0;
 
 void
 picapol_show(struct pica_policy *pp)
 {
     int	i;
-    printf("Version: %s\n", pp->version);
+    switch (ver) {
+    case PICA_POLICY_V0:
+	printf("Version: V0\n"); break;
+    case PICA_POLICY_V1:
+	printf("Version: V1\n"); break;
+    default:
+	printf("Version: Unknown (%s)\n", pp->version);
+	return;
+    }
     for (i = 0; i < pp->entries; i++) {
 	struct pica_stmt *stmt = &pp->stmt[i];
 	int	j;
@@ -49,9 +68,14 @@ picapol_show(struct pica_policy *pp)
 	for (j = 0; j < stmt->act_cnt; j++) {
 	    printf("%s, ", stmt->action[j]);
 	}
-	printf("\n\tinvocation chain(%d):\n", stmt->ichn_cnt);
-	for (j = 0; j < stmt->ichn_cnt; j++) {
-	    printf("\t\t%s\n", stmt->ichain[j]);
+	printf("\n\tinvocation chain array(%d):\n", stmt->ary_cnt);
+	for (j = 0; j < stmt->ary_cnt; j++) {
+	    int	k;
+	    printf("\t\tinvocation chain(%d): [\n", stmt->iarray[j].ichn_cnt);
+	    for (k = 0; k < stmt->iarray[j].ichn_cnt; k++) {
+		printf("\t\t    %s\n", stmt->iarray[j].ichain[k]);
+	    }
+    	    printf("\t\t]\n");
 	}
     }
 }
@@ -191,28 +215,60 @@ parse_action(struct json_object *obj, struct pica_stmt *stmt)
 }
 
 /*
- * "InvocationChain": [ ... ]
+ * V0:	"InvocationChain": [ ... ]
+ * V1:	"InvocationChain": [ [ ... ], [ ... ], [ ... ] ] 
  */
 void
 parse_invchain(struct json_object *obj, struct pica_stmt *stmt)
 {
-    int	i;
+    int	i, j;
     if (!json_object_is_type(obj, json_type_array)) {
 	fprintf(stderr, "Error \"InvocationChain\" element must be array\n");
 	return;
     }
-    stmt->ichn_cnt = json_object_array_length(obj);
-    stmt->ichain = malloc(sizeof(char*)*stmt->ichn_cnt);
-    memset(stmt->ichain, 0, sizeof(char*)*stmt->ichn_cnt);
-    SHOW printf("\tInvocationChain (%d):\n", stmt->ichn_cnt);
-    for (i = 0; i < json_object_array_length(obj); i++) {
-	struct json_object *item = json_object_array_get_idx(obj, i);
-	if (!json_object_is_type(item, json_type_string)) {
-	    fprintf(stderr, "InvocationChain item must be string\n");
-	    continue;
+    printf("ver = %d\n", ver);
+    if (ver == PICA_POLICY_V0) {
+	stmt->ary_cnt = 1;
+	stmt->iarray = malloc(sizeof(struct inv_array));
+	stmt->iarray[0].ichn_cnt = json_object_array_length(obj);
+	stmt->iarray[0].ichain = malloc(sizeof(char*)*stmt->iarray[0].ichn_cnt);
+	memset(stmt->iarray[0].ichain, 0, sizeof(char*)*stmt->iarray[0].ichn_cnt);
+	SHOW printf("\tInvocationChain (%d):\n", stmt->iarray[0].ichn_cnt);
+	for (i = 0; i < json_object_array_length(obj); i++) {
+	    struct json_object *item = json_object_array_get_idx(obj, i);
+	    if (!json_object_is_type(item, json_type_string)) {
+		fprintf(stderr, "InvocationChain item must be string\n");
+		continue;
+	    }
+	    SHOW printf("\t\t%s\n", json_object_get_string(item));
+	    stmt->iarray[0].ichain[i] = strdup(json_object_get_string(item));
 	}
-	SHOW printf("\t\t%s\n", json_object_get_string(item));
-	stmt->ichain[i] = strdup(json_object_get_string(item));
+    } else if (ver == PICA_POLICY_V1) {
+	stmt->ary_cnt = json_object_array_length(obj);
+	stmt->iarray = malloc(sizeof(struct inv_array)*stmt->ary_cnt);
+	for (i = 0; i < json_object_array_length(obj); i++) {
+	    struct json_object *array = json_object_array_get_idx(obj, i);
+	    stmt->iarray[i].ichn_cnt = json_object_array_length(array);
+	    stmt->iarray[i].ichain = malloc(sizeof(char*)*stmt->iarray[i].ichn_cnt);
+	    memset(stmt->iarray[i].ichain, 0, sizeof(char*)*stmt->iarray[i].ichn_cnt);
+	    SHOW printf("\tInvocationChain (%d):\n", stmt->iarray[i].ichn_cnt);
+	    if (!json_object_is_type(array, json_type_array)) {
+		fprintf(stderr, "Error \"InvocationChain\" element must be array\n");
+		return;
+	    }
+	    for (j = 0; j < json_object_array_length(array); j++) {
+		struct json_object *item = json_object_array_get_idx(array, j);
+		if (!json_object_is_type(item, json_type_string)) {
+		    fprintf(stderr, "InvocationChain item must be string\n");
+		    continue;
+		}
+		SHOW printf("\t\t%s\n", json_object_get_string(item));
+		stmt->iarray[i].ichain[j] = strdup(json_object_get_string(item));
+	    }
+	}
+    } else {
+	fprintf(stderr, "%s: internal error\n", __func__);
+	return;
     }
 }
 
@@ -271,11 +327,20 @@ json_statement(struct json_object *obj, struct pica_policy *pp)
 char	*
 json_version(struct json_object *obj)
 {
+    const char	*str;
     if (!json_object_is_type(obj, json_type_string)) {
 	fprintf(stderr, "Error \"Version\" element is not a string\n");
 	return NULL;
     }
     SHOW printf("Version: %s\n", json_object_get_string(obj));
+    str = json_object_get_string(obj);
+    if (!strcmp(str, PICA_POLICY_V0_STRING)) {
+	ver = PICA_POLICY_V0;
+    } else if (!strcmp(str, PICA_POLICY_V1_STRING)) {
+	ver = PICA_POLICY_V1;
+    } else {
+	fprintf(stderr, "Unexpected PICA policy verion\n");
+    }
     return strdup(json_object_get_string(obj));
 }
 
@@ -318,7 +383,8 @@ main(int argc, char **argv)
     }
     jobj = json_object_from_file(argv[optind]);
     if (jobj == NULL) {
-	fprintf(stderr, "Cannot open the json file: %s\n", argv[1]);
+	fprintf(stderr, "Cannot open the json file, %s\n", argv[1]);
+	fprintf(stderr, "\treason: %s\n", json_util_get_last_err());
 	return -1;
     }
     {

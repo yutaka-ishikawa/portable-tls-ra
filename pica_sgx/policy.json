@@ -13,12 +13,11 @@
               "*"
 	  ],
           "InvocationChain": [
-	      "/usr/bin/make",
 	      "/usr/bin/screen",
+	      "/usr/bin/bash",
 	      "/usr/bin/emacs-gtk",
-              "/usr/sbin/sshd",
-              "/usr/bin/bash",
-              "/home/ishikawa/work/portable-tls-ra/pica_sgx/host"
+	      "/usr/bin/bash",
+	      "/home/ishikawa/work/portable-tls-ra/pica_sgx/host"
           ]
       },
       {

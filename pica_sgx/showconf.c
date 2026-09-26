@@ -7,6 +7,7 @@
 #include "Enclave/libpica.h"
 #include "../murmur3/murmur3.h"
 
+int	vflag;
 char	*ppath = "./pica.conf";
 
 char *
@@ -83,6 +84,7 @@ main(int argc, char **argv)
 	    printf("[%d]\tpath: %s\n", i, cpif[i].path);
 	    printf("\truid: %d\n", cpif[i].ruid);
 	    printf("\tdigest: %s\n", dump(cpif[i].digest, 32, buf, 256));
+	    printf("\tlibscount(%d)\n", cpif[i].count);
 
 	    for (j = 0; j < cpif[i].count; j++) {
 		printf("\tlibs[%d]->path: %s\n", j, fdigp[j].path);

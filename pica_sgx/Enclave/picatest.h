@@ -1,9 +1,18 @@
-#ifndef DEBUG
+extern int	sflag;
+extern int	vflag;
+
 #define DEBUG	if (dflag)
+#define VERB_ALL		0xffff
+#define VERB_CONF		0x0001
+#define VERB_PICA_CONF		0x0002
+#define VERB_PICA_POLICY	0x0004
+#define VERB_VRFY_ICHAIN	0x0008
+#define VERB_VRFY_DIGEST	0x0010
+#define VERB_VRFY_TPM2Q		0x0020
+#ifdef VERBOSE
+#undef VERBOSE
 #endif
-#ifndef VERBOSE
-#define VERBOSE	if (vflag)
-#endif
+#define VERBOSE(LVL)	if (vflag & LVL)
 
 #define PICA_ENT_CONF_PROCINFO	1 /* from conf file */
 #define PICA_ENT_FRESH_PROCINFO	2 /* from Attester Daemon */

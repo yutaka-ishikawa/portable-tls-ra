@@ -109,7 +109,7 @@ HOST_CLIENT_BIN := host
 # ==== Rules ====
 .PHONY: all run clean distclean
 
-all: $(HOST_SERVER_BIN) $(ENCLAVE_SERVER_SIGNED) $(HOST_CLIENT_BIN)  $(ENCLAVE_CLIENT_SIGNED)
+all: $(HOST_SERVER_BIN) $(ENCLAVE_SERVER_SIGNED) $(HOST_CLIENT_BIN)  $(ENCLAVE_CLIENT_SIGNED) showconf
 
 # --- Edger8r codegen ---
 Enclave/Enclave_t.c Enclave/Enclave_t.h: $(EDL)
