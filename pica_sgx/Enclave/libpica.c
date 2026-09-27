@@ -529,17 +529,12 @@ check_ichain(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
 		rc = 0;
 		goto ext;
 	    }
-#if 0
-	    for (k = 0; k < ccount; k++) {
-		if (!strcmp(cp, chain[k])) goto found;
-	    }
-	    /* not found */
-	    rc = 0; goto ext;
-	found:
-#endif
 	}
-    }
+	/* all found */
+	goto found;
 ext:
+    }
+found:
     return rc;
 }
 
@@ -593,7 +588,11 @@ find_policy(struct pica_policy *ppol, struct procinfo *bin)
 	    goto found;
 	}
     }
-    printf("%s: Not found\n", __func__);
+    printf("%s: Policy statment is not found for %s\n", __func__, bin->path);
+    printf("We have policies for the following commands\n");
+    for (i = 0; i < ppol->entries; i++) {
+	printf("\t%s\n", ppol->stmt[i].exec_path);
+    }
     return 0;
 found:
     return &ppol->stmt[i];

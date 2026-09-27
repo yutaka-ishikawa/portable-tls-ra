@@ -740,8 +740,16 @@ err:
 static void
 usage(const char *cmd)
 {
-    fprintf(stderr, "%s: [-d] [-D <daemon path>] [-r <conf file>] [-p <policy file>]\n", cmd);
+    fprintf(stderr, "%s: -h : producing this message\n", cmd);
+    fprintf(stderr, "    -D <daemon path> : specifying attester daemon path%s", "\n");
+    fprintf(stderr, "                     : e.g., -D /tmp/sock-tpmd-daemon%s",  "\n");
+    fprintf(stderr, "    -r <conf path>   : registering configuration file%s", "\n");
+    fprintf(stderr, "                     : e.g., -r pica.conf%s", "\n");
+    fprintf(stderr, "    -p <policy path> : specifying policy file path%s", "\n");
+    fprintf(stderr, "                     : e.g., -p policy.json (default)%s", "\n");
+    fprintf(stderr, "    -d : for debugging%s", "\n");
 }
+
 
 #define OPT_GET_STRVAL(dst, len, pos, argc, argv, lbl) \
 do {						\
@@ -774,7 +782,7 @@ opt_get_xval(int *flg, int *pos, int argc, char **argv)
     *flg = val;
     return rc;
 }
-    
+
 static int
 getoption(int argc, char **argv)
 {
@@ -784,6 +792,8 @@ getoption(int argc, char **argv)
 	//printf("argv[%d] = %s\n", i, argv[i]);
 	if (argv[i][0] == '-') {
 	    switch (argv[i][1]) {
+	    case 'h':
+		goto err;
 	    case 'd':
 		dflag = 1; break;
 	    case 'D': /* using Attester Daemon */

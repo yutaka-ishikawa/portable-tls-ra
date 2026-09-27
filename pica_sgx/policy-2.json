@@ -1,0 +1,45 @@
+{
+  "Version": "PICA-2026-09-25",
+  "Statement": [
+      {
+	  "Sid": "Administration",
+	  "Effect": "Allow",
+	  "Principal": {
+              "Binary": "/home/ishikawa/work/portable-tls-ra/pica_sgx/host",
+	      "Uid": [ 1000, 1001, 1002 ]
+	  },
+	  "Resource": "enclave",
+	  "Action": [
+              "*"
+	  ],
+          "InvocationChain": [
+	      [
+		  "/usr/bin/screen",
+		  "/usr/bin/bash",
+		  "/usr/bin/emacs-gtk",
+		  "/usr/bin/bash",
+		  "/usr/bin/make",
+		  "/home/ishikawa/work/portable-tls-ra/pica_sgx/host"
+	      ],
+	      [
+		  "/usr/bin/screen",
+		  "/usr/bin/emacs-gtk",
+		  "/usr/sbin/sshd",
+		  "/usr/bin/bash",
+		  "/home/ishikawa/work/tmp/portable-tls-ra/pica_sgx/host"
+	      ]
+          ]
+      },
+      {
+	  "Sid": "Client",
+	  "Principal": {
+              "Binary": "/usr/bin/client_app"
+	  },
+	  "Resource": "enclave",
+	  "Action": [
+              "open",  "read",  "close"
+	  ],
+	  "Effect": "Allow"
+      }
+  ]
+}
