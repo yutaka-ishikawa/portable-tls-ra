@@ -24,6 +24,7 @@
 #include "libcbor.h"
 #include "tpmdaemon.h"
 #include <getopt.h>
+#include <errno.h>
 
 /* return value is boolean: true (1) or false (0) */
 #define CBORCALL(label, val, lib)	\
@@ -97,6 +98,30 @@ do {				\
 int	dflag = 0;
 int	vflag = 0;
 
+static float
+time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
+{
+    int64_t sec = et_sec - st_sec;
+    int64_t nsec = et_nsec - st_nsec;
+    double msec;
+    msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
+    return (float) msec;
+}
+
+static void
+getclocktime(int64_t *sec, int64_t *nsec)
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+	perror("ocall_getclocktime");
+	*sec = 0;
+	*nsec = 0;
+    } else {
+	*sec  = (int64_t)ts.tv_sec;
+	*nsec = (int64_t)ts.tv_nsec;
+    }
+}
+
 static void
 usage(const char *cmd)
 {
@@ -158,17 +183,23 @@ make_tpm2_quote_with_pid(uint8_t *nonce, int nsize, size_t qbsize,
     int	rc = -1;
     struct tpm2_quote	t_quote;
     cbor_item_t		*c_tpm2_quote = NULL;
+    int64_t	st_sec, st_nsec, et_sec, et_nsec;
 
     /* app-hash || nonce */
     rc = hash_extend_sha256(apphash, nonce, newhash);
+#if 0
     dump("@@@@@@@ apphash: ", apphash, 32);
     dump("@@@@@@@ nonce: ", nonce, 32);
     dump("@@@@@@@ TPM2 EXTEND(app-hash || nonce): ", newhash, 32);
+#endif
+    getclocktime(&st_sec, &st_nsec);    
     rc = make_tpm2_quote(newhash, nsize, alg, pcrs, count, 0x81018001, &t_quote);
+    getclocktime(&et_sec, &et_nsec);
     if (rc < 0) {
 	fprintf(stderr, "%s: make_tpm2_quote error\n", __func__);
 	goto err0;
     }
+    printf("%s: make_tpm2_quote time: %f msec\n", __func__, time_to_msec(st_sec, st_nsec, et_sec, et_nsec));
     {
 	size_t	off = 0;
 	TPMS_ATTEST	tpm_atst;
@@ -227,8 +258,8 @@ make_tpm2_pica(uint8_t *nonce, int nsize,
     
     procchain = mycbor_pack_procchain(pid, pcsz);
     SHA256(procchain, *pcsz, hash);
-    fprintf(stderr, "%s: prochhain(%ld)\n", __func__, *pcsz);
-    dump("prochain: ", hash, 32);
+    // fprintf(stderr, "%s: prochhain(%ld)\n", __func__, *pcsz);
+    // dump("prochain: ", hash, 32);
     /*
      * serialized quote and its size are stored in tpm2_ser and qsz
      */
@@ -310,7 +341,7 @@ reply_pica(int con, uint8_t *tpm2_quote, size_t t_size,
     size_t	sendsz = 0;
     int	rc;
 
-    printf("%s: quote size(%ld) pica size(%ld)\n", __func__, t_size, p_size);
+    // printf("%s: quote size(%ld) pica size(%ld)\n", __func__, t_size, p_size);
     CBORCALLP(err0, c_pkt, cbor_new_definite_map(2));
     CBORCALL(err1, rc, add_cbor_map(c_pkt, "tpm2_quote", tpm2_quote, t_size));
     CBORCALL(err1, rc, add_cbor_map(c_pkt, "pica", pica, p_size));
@@ -321,11 +352,11 @@ reply_pica(int con, uint8_t *tpm2_quote, size_t t_size,
     head.aux = TPMD_AUX_OK;
     head.len = sendsz;
 
-    printf("%s: sending reply of attest, len=%ld\n", __func__, sendsz);
-    printf("%s: sending header\n", __func__);
+    // printf("%s: sending reply of attest, len=%ld\n", __func__, sendsz);
+    // printf("%s: sending header\n", __func__);
     LIBCALLmsg(err2, rc, sock_send(con, &head, sizeof(head)),
 	       "%s: send error\n", __func__);
-    printf("%s: sending data (%ld)\n", __func__, sendsz);
+    // printf("%s: sending data (%ld)\n", __func__, sendsz);
     LIBCALLmsg(err2, rc, sock_send(con, sendbufp, sendsz),
 	       "%s: send error\n", __func__);
     /**/
@@ -421,7 +452,7 @@ tpmddaemon(const char *path)
 		uint8_t	*pica;
 		size_t	picsz;
 		printf("Receive REQ_PICA len=%d pid(%d)\n", pktp->len, pid);
-		dump("nonce: ", &pktp->data[0], pktp->len);
+		// dump("nonce: ", &pktp->data[0], pktp->len);
 		pica = make_tpm2_pica(&pktp->data[0], 32,
 				      buf, sizeof(buf), &size, &picsz, pid);
 		reply_pica(con, buf, size, pica, picsz);
@@ -432,7 +463,13 @@ tpmddaemon(const char *path)
 	    }
 	    free(pktp);
 	}
-	printf("Exiting rc(%d)\n", rc);
+	if (rc == -1) {
+	    printf("Exiting due to peer disconnection.\n");
+	} else if (rc == -2) {
+	    printf("Exiting due to short message receive.\n");
+	} else {
+	    printf("Exiting. Unknown reason.\n");
+	}
     }
 err:
     if (sock) unlink(path);
