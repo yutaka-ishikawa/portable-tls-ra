@@ -1,6 +1,6 @@
 CFLAGS = -MMD -Wall -g -O2
 INCL = 
-LIBS =  -ltss2-mu -ltss2-esys -ltss2-tctildr -ltss2-rc -lcrypto -lcbor
+LIBS =  -ltss2-mu -ltss2-esys -ltss2-tctildr -ltss2-rc -lcrypto -lcbor ../murmur3/murmur3.o
 SRCS  = $(wildcard *.c)
 OBJS  = $(SRCS_COMMON:.c=.o)
 DEPS  = $(SRCS_COMMON:.c=.d)
@@ -91,14 +91,14 @@ get_quote: get_quote.c libquote.o
 test_libsock: libsock.c libsock.h
 	cc $(CFLAGS) -DLIBSOCK_TEST -o $@ libsock.c
 measure: libmeasurement.c
-	cc $(CFLAGS) -DCMD_MEASURE -o $@ $^ -lcrypto
+	cc $(CFLAGS) -DCMD_MEASURE -o $@ $^ -lcrypto ../murmur3/murmur3.o
 sealtest: sealtest.o  Enclave/Enclave_u.o
 	cc $(CFLAGS) $(U_INC) -o $@ $^ $(LIBS) $(URTS)
 cbortest: libcbor.c libmeasurement.o libprocchain.o
-	cc $(CFLAGS) -DLIBCBOR_TEST -o $@ libcbor.c libmeasurement.o libprocchain.o -lcbor -lcrypto
+	cc $(CFLAGS) -DLIBCBOR_TEST -o $@ libcbor.c libmeasurement.o libprocchain.o -lcbor -lcrypto ../murmur3/murmur3.o
 pchaintest: libprocchain.c libmeasurement.o libprocchain.o
-	cc $(CFLAGS) -DLIBPROCCHAIN_TEST -o $@ libprocchain.c libmeasurement.o -lcbor -lcrypto
-sealtest.o: sealtest.c
+	cc $(CFLAGS) -DLIBPROCCHAIN_TEST -o $@ libprocchain.c libmeasurement.o -lcbor -lcrypto ../murmur3/murmur3.o
+sealtest.o: sealtest.c 
 	cc $(CFLAGS) $(U_INC) -c $@ $^ $(LIBS)
 quote_esys: quote_esys.c
 	cc $(CFLAGS) -o $@ $^ $(LIBS)

@@ -17,6 +17,7 @@
 	      "/usr/bin/bash",
 	      "/usr/bin/emacs-gtk",
 	      "/usr/bin/bash",
+	      "/usr/bin/make",
 	      "/home/ishikawa/work/portable-tls-ra/pica_sgx/host"
           ]
       },

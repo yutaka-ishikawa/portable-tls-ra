@@ -4,7 +4,7 @@ struct path_entry {
     struct path_entry	*next;
 };
 
-extern int	sha256_file(const char *path,
+extern int	sha256_file(const char *libpath, const char *path,
 			    uint8_t *digest, unsigned int *digest_len);
 extern int	sha256_pid(int pid, uint8_t *digest, unsigned int *digest_len,
 			   char *cmdpath, size_t path_len);

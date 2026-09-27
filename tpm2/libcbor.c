@@ -94,6 +94,7 @@ mycbor_sha256_binaries(pid_t pid, pid_t *ppid)
     cred_pid(pid, ppid, &ruid, &rgid, &euid, &egid, &suid, &sgid);
     /* sha256 of shared libraries */
     count = sha256_libs(pid, &paths);
+    //printf("%s: number of libraries:%d\n", __func__, count);
 
     /* hash of libraries */
     CBORCALLP(err0, cmap, cbor_new_definite_map(count + PROCINFO_BASE_ENTRIES));

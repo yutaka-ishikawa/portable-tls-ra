@@ -109,7 +109,7 @@ HOST_CLIENT_BIN := host
 # ==== Rules ====
 .PHONY: all run clean distclean
 
-all: $(HOST_SERVER_BIN) $(ENCLAVE_SERVER_SIGNED) $(HOST_CLIENT_BIN)  $(ENCLAVE_CLIENT_SIGNED) showconf
+all: $(HOST_SERVER_BIN) $(ENCLAVE_SERVER_SIGNED) $(HOST_CLIENT_BIN)  $(ENCLAVE_CLIENT_SIGNED) conftool
 
 # --- Edger8r codegen ---
 Enclave/Enclave_t.c Enclave/Enclave_t.h: $(EDL)
@@ -157,8 +157,8 @@ $(HOST_CLIENT_BIN): $(UNTRUSTED_CLIENT_OBJS)
 #
 # Test programs
 #
-showconf: showconf.c Enclave/libpica.c
-	cc -I/usr/include/json-c  -g -O2 -o showconf showconf.c Enclave/libpica.c ../murmur3/murmur3.o -ljson-c
+conftool: conftool.c Enclave/libpica.c
+	cc -I/usr/include/json-c  -g -O2 -o conftool conftool.c Enclave/libpica.c ../murmur3/murmur3.o ../tpm2/libmeasurement.o -ljson-c -lcrypto
 
 #
 #

@@ -165,6 +165,7 @@ show_procinfo(struct procinfo *cpif, int proc_cnt)
 	printf("[%d]\tpath: %s\n", i, cpif[i].path);
 	printf("\truid: %d\n", cpif[i].ruid);
 	dump("\tdigest: ", cpif[i].digest, 32);
+	printf("\tlibs: %d\n", cpif[i].count);
 
 	for (j = 0; j < cpif[i].count; j++) {
 	    printf("\tlibs[%d]->path: %s\n", j, fdigp[j].path);
@@ -307,7 +308,7 @@ free_pinfo(struct procinfo *pinfo, int entries)
     for (i = 0; i < entries; i++) {
 	if (pinfo[i].path) free(pinfo[i].path);
 	for (j = 0; j < pinfo[i].count; j++) {
-	    printf("pinfo[%d].libs[%d].path = %p\n", i, j, pinfo[i].libs[j].path);
+	    // printf("pinfo[%d].libs[%d].path = %p\n", i, j, pinfo[i].libs[j].path);
 	    free(pinfo[i].libs[j].path);
 	}
 	free (pinfo[i].libs);
@@ -717,13 +718,14 @@ handle_pica(cbor_item_t *item, struct procinfo **out)
 	pinfo[i].sgid = mycbor_get_int(cpair[7].value); /* "sgid" */
 	pinfo[i].path = mycbor_get_string(cpair[8].value); /* "path" */
 	mycbor_copy_bstring(pinfo[i].digest, cpair[9].value, 32); /* "sha256" */
+	//printf("%s: count = %d\n", __func__, count);
 	if (count > 10) {
 	    int	j, k;
 		pinfo[i].count = count - 10;
 		pinfo[i].libs = malloc(sizeof(struct fdigest) * pinfo[i].count);
 		for (j = 0, k = 10; k < count; j++, k++) {
 		    pinfo[i].libs[j].path = mycbor_get_string(cpair[k].key);
-		    printf("\t%s\n", pinfo[i].libs[j].path);
+		    //printf("\t%s\n", pinfo[i].libs[j].path);
 		    mycbor_copy_bstring(pinfo[i].libs[j].digest,
 					cpair[k].value, 32);
 		}
@@ -822,7 +824,7 @@ int
 main(int argc, char **argv)
 {
     uint8_t	nonce[32];
-    uint8_t	measure[1024*32];
+    uint8_t	measure[1024*128];
     size_t	msz = sizeof(measure);
     sgx_status_t    sret;
     struct cbor_load_result crslt;

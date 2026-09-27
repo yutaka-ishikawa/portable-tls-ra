@@ -18,6 +18,7 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include "libmeasurement.h"
+#include "../murmur3/murmur3.h"
 
 #define LINE_SIZE       4096
 #define PATH_SIZE       4096
@@ -73,6 +74,7 @@ is_shared_library(const char *path)
 
 /*
  * Check whether the pathname has already been registered.
+ * This is a binary search, it might be ok ...
  */
 static int
 path_exists(struct path_entry *head, const char *path)
@@ -110,6 +112,54 @@ add_path(struct path_entry **head, const char *path,
     return 0;
 }
 
+#define HTABLE_SZ	512
+
+static uint32_t
+myhash(const char *cp)
+{
+    uint32_t	hash;
+    uint32_t	seed = 0;
+    MurmurHash3_x86_32(cp, strlen(cp), seed, &hash);
+    hash = ((hash>>16) ^ (hash&0xffff)) % HTABLE_SZ;
+    return hash;
+}
+
+struct fp_hentry {
+    char	*path;
+    uint8_t	digest[32];
+    struct fp_hentry	*next;
+};
+struct fp_htable {
+    uint32_t	hash;
+    struct fp_hentry	hentry;
+};
+
+static struct fp_htable	filepath_htable[HTABLE_SZ];
+
+static struct fp_hentry *
+find_hashentry(const char *path)
+{
+    struct fp_hentry *fp;
+    uint32_t	hash = myhash(path);
+
+    fp = &filepath_htable[hash].hentry;
+    if (fp->path == 0 || !strcmp(fp->path, path)) goto found;
+    while (fp->next) {
+	if (!strcmp(fp->next->path, path)) {
+	    fp = fp->next;
+	    goto found;
+	}
+	fp = fp->next;
+    }
+    /* no entry */
+    fp->next = (struct fp_hentry*) malloc(sizeof(struct fp_htable));
+    memset(fp->next, 0, sizeof(struct fp_htable));
+    fp = fp->next;
+found:
+    return fp;
+}
+
+
 /*
  * Free the pathname list.
  */
@@ -126,18 +176,35 @@ free_paths(struct path_entry *head)
     }
 }
 
-
+/*
+ * libpath is .so file name
+ * path is a file path under the /proc/<pid>/map_files
+ */
 int
-sha256_file(const char *path, uint8_t *digest, unsigned int *digest_len)
+sha256_file(const char *libpath, const char *path, uint8_t *digest, unsigned int *digest_len)
 {
+    struct fp_hentry	*fp;
     struct stat		sbuf;
     unsigned char	*cp  = NULL;
     EVP_MD_CTX		*ctx = NULL;
     int			fd = -1;
     int result = -1;
 
+    fp = find_hashentry(libpath);
+    if (fp->path) {
+	//printf("%s: %s use cache\n", __func__, path);
+	/* already measured */
+	memcpy(digest, fp->digest, 32);
+	*digest_len = 32;
+	return 0;
+    } else {
+	//printf("%s: %s measure\n", __func__, path);
+	int	len = strlen(path) + 1;
+	fp->path = (char*) malloc(len);
+	memcpy(fp->path, libpath, len);
+    }
     if ((fd = open(path, O_RDONLY)) < 0) {
-	perror("open");
+	printf("%s: cannot open file: %s\n", __func__, path);
 	goto err1;
     }
     if (fstat(fd, &sbuf) < 0) {
@@ -167,6 +234,10 @@ sha256_file(const char *path, uint8_t *digest, unsigned int *digest_len)
         goto err2;
     }
     if (fd > 0) close(fd);
+
+    /* digest is copied into hash entry */
+    memcpy(fp->digest, digest, 32);
+
     return 0;
 
 err2:
@@ -228,15 +299,20 @@ sha256_libs(pid_t pid, struct path_entry **head)
 	/* getting real file path using virtual address */
 	snprintf(pathbuf, sizeof(pathbuf),
 		 "/proc/%ld/map_files/%lx-%lx", (long)pid, start, end);
-	//printf("pathbuf = %s\n", pathbuf);
-
-        if (!is_shared_library(pathbuf)) continue;
-        if (path_exists(*head, pathbuf)) continue;
-	if (sha256_file(pathbuf, dig, &dlen) != 0) {
+	/*
+	 * checking corresponding file name' extension is .so.
+	 * the file names under the map_files do not have the extension name, .so
+	 */
+        if (!is_shared_library(path)) continue;
+        if (path_exists(*head, path)) continue;
+	
+	/* adding as a shared library */
+	if (sha256_file(path, pathbuf, dig, &dlen) != 0) {
             fprintf(stderr, "ERROR  %s\n", pathbuf);
             continue;
         }
-        if (add_path(head, pathbuf, dig, dlen) != 0) {
+	/* the library path name is original .so file name, not the name in map_files */
+        if (add_path(head, path, dig, dlen) != 0) {
             fprintf(stderr, "cannot allocate path entry\n");
             fclose(fp);
             return -1;
@@ -256,7 +332,7 @@ sha256_pid(int pid, uint8_t *digest, unsigned int *digest_len,
     ssize_t	len;
     int	rc;
     snprintf(path, sizeof(path), "/proc/%d/exe", pid);
-    rc = sha256_file(path, digest, digest_len);
+    rc = sha256_file(path, path, digest, digest_len);
     if (rc < 0) goto err;
     if (cmdpath) {
 	len = readlink(path, cmdpath, path_len - 1);
@@ -318,7 +394,7 @@ main(int argc, char **argv)
 	}
     } else {
 	if (optind < argc) {
-	    if (sha256_file(argv[optind], digest, &dlen) < 0) {
+	    if (sha256_file(argv[optind], argv[optind], digest, &dlen) < 0) {
 		return -1;
 	    }
 	} else {
