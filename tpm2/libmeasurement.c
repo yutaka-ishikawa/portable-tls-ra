@@ -88,7 +88,7 @@ path_exists(struct path_entry *head, const char *path)
 }
 
 /*
- * Add a pathname to the list.
+ * pushing a pathname and digest to the list.
  */
 static int
 add_path(struct path_entry **head, const char *path,

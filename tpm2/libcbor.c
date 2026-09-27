@@ -2,9 +2,34 @@
 #include <limits.h>
 #include <string.h>
 #include <cbor.h>
+#include <time.h>
 #include "libmeasurement.h"
 #include "libprocchain.h"
 #include "libcbor.h"
+
+static float
+time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
+{
+    int64_t sec = et_sec - st_sec;
+    int64_t nsec = et_nsec - st_nsec;
+    double msec;
+    msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
+    return (float) msec;
+}
+
+static void
+getclocktime(int64_t *sec, int64_t *nsec)
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+	perror("ocall_getclocktime");
+	*sec = 0;
+	*nsec = 0;
+    } else {
+	*sec  = (int64_t)ts.tv_sec;
+	*nsec = (int64_t)ts.tv_nsec;
+    }
+}
 
 int
 mycbor_add_map_bstring(cbor_item_t *map,
@@ -147,7 +172,9 @@ mycbor_pack_procchain(pid_t pid, size_t *size)
     pid_t	ppid;
     struct tmplist	*top = NULL;
     int	count = 0;
+    int64_t	st_sec, st_nsec, et_sec, et_nsec;
 
+    getclocktime(&st_sec, &st_nsec);
     do {
 	size_t	sz;
 	uint8_t	*serial = mycbor_sha256_binaries_serial(pid, &sz, &ppid);
@@ -161,7 +188,10 @@ mycbor_pack_procchain(pid_t pid, size_t *size)
 	count++;
 	pid = ppid;
     } while (pid != 1);
-    printf("%s: count = %d\n", __func__, count);
+    getclocktime(&et_sec, &et_nsec);
+    
+    printf("%s: proc chain count = %d, %f msec\n",
+	   __func__, count, time_to_msec(st_sec, st_nsec, et_sec, et_nsec));
     /* now making cbor */
     {
 	int	rc;
