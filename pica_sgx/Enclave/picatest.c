@@ -58,7 +58,7 @@ time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
     int64_t sec = et_sec - st_sec;
     int64_t nsec = et_nsec - st_nsec;
     double msec;
-    printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
+    //printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
     msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
     return (float) msec;
 }
@@ -851,6 +851,7 @@ main(int argc, char **argv)
     int	i;
     int		rc = 0;
     int64_t	st_sec, st_nsec, et_sec, et_nsec;
+    int64_t	mt_sec, mt_nsec;
 
     DEBUG printf("%s: invoked\n", __func__);
     rc = getoption(argc, argv);
@@ -876,8 +877,8 @@ main(int argc, char **argv)
 	buffer = malloc(sz);
 	ocall_pica_fread(fd, buffer, sz, &wsz);
 	entries = build_conf(buffer, &procinfo);
-	VERBOSE(VERB_ALL) printf("\tentries = %d\n", entries);
-	show_procinfo(procinfo, entries);
+	VERBOSE(VERB_CONF) printf("\tentries = %d\n", entries);
+	VERBOSE(VERB_CONF) show_procinfo(procinfo, entries);
 	/* the allocated memory area is used, do not free */
 	for (i = 0; i < entries; i++) {
 	    reg_hashtable(PICA_ENT_CONF_PROCINFO,
@@ -914,8 +915,11 @@ main(int argc, char **argv)
 	    reg_hashtable(PICA_ENT_CONF_POLICY, stmt, stmt->exec_path);
 	}
     }
-
-    /**/
+    getclocktime(&mt_sec, &mt_nsec);
+    
+    /*
+     * Talking to Attester Daemon to obtain measurement results
+     */
     sret = sgx_read_rand((unsigned char *)nonce, 32);
     if (sret != SGX_SUCCESS) {
         return -1;
@@ -1021,18 +1025,20 @@ main(int argc, char **argv)
 	/* Seaching a policy for mybinary */
 	pstmt = find_policy(&ppol, mybinary);
 	if (!pstmt) goto ext;
-	printf("\teffect: %s\n",
-	       pstmt->effect == PICA_ALLOW ? "allow" : "deny");
-	{
-	    int i, j;
-	    printf("\tuid list:");
-	    for (i = 0; i < pstmt->uid_cnt; i++) printf(" %d", pstmt->uid[i]);
-	    printf("\n\taction list:");
-	    for (i = 0; i < pstmt->act_cnt; i++) printf(" %s", pstmt->action[i]);
-	    printf("\n\tinvocation chain:\n");
-	    for (i = 0; i < pstmt->ary_cnt; i++) {
-		for (j = 0; j < pstmt->iarray[i].ichn_cnt; j++) {
-		    printf("\t\t%s\n", pstmt->iarray[i].ichain[j]);
+	VERBOSE(VERB_PICA_POLICY) {
+		printf("\teffect: %s\n",
+		       pstmt->effect == PICA_ALLOW ? "allow" : "deny");
+	    {
+		int i, j;
+		printf("\tuid list:");
+		for (i = 0; i < pstmt->uid_cnt; i++) printf(" %d", pstmt->uid[i]);
+		printf("\n\taction list:");
+		for (i = 0; i < pstmt->act_cnt; i++) printf(" %s", pstmt->action[i]);
+		printf("\n\tinvocation chain:\n");
+		for (i = 0; i < pstmt->ary_cnt; i++) {
+		    for (j = 0; j < pstmt->iarray[i].ichn_cnt; j++) {
+			printf("\t\t%s\n", pstmt->iarray[i].ichain[j]);
+		    }
 		}
 	    }
 	}
@@ -1055,17 +1061,27 @@ main(int argc, char **argv)
 	       (verified & VERIFY_PICA_CHAIN) ? "Verified" : "Failed",
 	       (verified & VERIFY_PICA_UIDS) ? "Verified" : "Failed");
 	if (VERIFIED_ALL(verified)) {
+	    printf("All verifications are success\n");
 	    show_actions(pstmt);
 	}
     }
     getclocktime(&et_sec, &et_nsec);
     {
+	double lat = time_to_msec(st_sec, st_nsec, mt_sec, mt_nsec);
+	printf("*********Conf and Policy Read******\n");
+	printf("start sec:(%d) nsec(%d)\n", st_sec, st_nsec);
+	printf("end sec(%d) nsec(%d)\n", mt_sec, mt_nsec);
+	printf("latency(msec): %f\n", lat);
+	printf("***********************************\n\n");
+    }
+
+    {
 	double lat = time_to_msec(st_sec, st_nsec, et_sec, et_nsec);
-	printf("***********************************\n");
+	printf("**Conf and Policy Read and Verify**\n");
 	printf("start sec:(%d) nsec(%d)\n", st_sec, st_nsec);
 	printf("end sec(%d) nsec(%d)\n", et_sec, et_nsec);
 	printf("latency(msec): %f\n", lat);
-	printf("***********************************\n");
+	printf("***********************************\n\n");
     }
 ext:
 err:

@@ -44,6 +44,7 @@ SGX_MYSSL_PATH := /home/ishikawa/work/linux-sgx/SampleCode/SampleAttestedTLS/sgx
 # Host libs (DCAP)
 HOST_LDLIBS := -L$(SGX_LIBRARY_PATH) -L$(SGX_MYDCAPLIBRARY_PATH) -L$(SGX_MYHOSTLIBRARY_PATH) -lsgx_urts -lsgx_uae_service -lsgx_quote_ex  -lsgx_usgxssl -lsgx_utls -lsgx_dcap_ql -lsgx_dcap_quoteverify -lcrypto -lpthread -lstdc++ \
 	../tpm2/libquote.o ../tpm2/libmeasurement.o ../tpm2/libsock.o \
+	../murmur3/murmur3.o \
 	-ltss2-mu -ltss2-esys -ltss2-tctildr -ltss2-rc
 ###HOST_CFLAGS := -O2 -g $(SGX_INCLUDE)
 HOST_CFLAGS := -O2 -g $(SGX_HOSTINCLUDE)

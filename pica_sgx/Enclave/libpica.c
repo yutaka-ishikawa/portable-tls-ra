@@ -516,19 +516,21 @@ check_ichain(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
     int rc = VERIFY_PICA_CHAIN;
     int	i, j, k;
 
-    printf("%s: proc chain count(%d) ary_cnt(%d)\n", __func__, ent, pstmt->ary_cnt);
+    VERBOSE(VERB_PICA_POLICY) printf("%s: proc chain count(%d) ary_cnt(%d)\n", __func__, ent, pstmt->ary_cnt);
     for (i = 0; i < pstmt->ary_cnt; i++) {
 	int	ccount = pstmt->iarray[i].ichn_cnt;
 	char	**chain = pstmt->iarray[i].ichain;
-	printf("%s:  ccount(%d) ent(%d)\n", __func__, ccount, ent);
+	VERBOSE(VERB_PICA_POLICY) printf("%s:  ccount(%d) ent(%d)\n", __func__, ccount, ent);
 	for (j = 0; j < ent; j++) {
 	    char	*cp = pinfo[j].path;
-	    printf("%s: [%d] pchain(%s) polchain(%s)\n", __func__, j, cp, chain[j]);
+	    VERBOSE(VERB_PICA_POLICY) printf("%s: [%d] pchain(%s) polchain(%s): ", __func__, j, cp, chain[j]);
 	    if (strcmp(cp, chain[j])) {
 		/* different path, error */
 		rc = 0;
+		VERBOSE(VERB_PICA_POLICY) printf("Unmatched\n");
 		goto ext;
 	    }
+	    VERBOSE(VERB_PICA_POLICY) printf("Matched\n");
 	}
 	/* all found */
 	goto found;

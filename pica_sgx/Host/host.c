@@ -25,7 +25,7 @@ time_to_msec(int64_t st_sec, int64_t st_nsec, int64_t et_sec, int64_t et_nsec)
     int64_t sec = et_sec - st_sec;
     int64_t nsec = et_nsec - st_nsec;
     double msec;
-    printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
+    //printf("sec(%f) nsec(%f)\n", (float) sec, (float) nsec);
     msec = (((double)sec*1000) + (double)(nsec)/(double)1000000);
     return (float) msec;
 }
