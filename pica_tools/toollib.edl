@@ -1,0 +1,19 @@
+enclave {
+    from "pica.edl" import *;
+    from "sgx_tstdc.edl" import *;
+    from "sgx_socket.edl" import *;
+    from "sgx_tsgxssl.edl" import *;
+    from "sgx_pthread.edl" import *;
+    trusted {
+        public sgx_status_t ecall_seal(uint32_t len_dat,
+				       [in, size=len_dat] const uint8_t *datp,
+				       uint32_t len_out,
+				       [out, size=len_out] uint8_t *outp,
+				       [out] uint32_t *encsz);
+        public sgx_status_t ecall_unseal(uint32_t len_dat,
+				       [in, size=len_dat] const uint8_t *datp,
+				       uint32_t len_out,
+				       [out, size=len_out] uint8_t *outp,
+				       [out] uint32_t *plsz);
+    };
+};
