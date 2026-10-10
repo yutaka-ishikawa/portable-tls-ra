@@ -17,6 +17,8 @@ extern int	file_chmod(const char *path, int mode);
 extern size_t	file_read_close(int fd, uint8_t *buf,  size_t bufsz);
 extern size_t	file_read_file(const char *path, void *buf, size_t sz);
 extern int	file_size(const char *path, size_t *sz);
+extern int	file_seal_write(int fd, void *buf, size_t sz);
+extern size_t	file_seal_read_close(int fd, void **buf, size_t sz);
 /**/
 extern void	myssl_errors();
 

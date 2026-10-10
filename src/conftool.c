@@ -49,6 +49,12 @@ usage(const char *cmd)
     exit(-1);
 }
 
+/*
+ * read_conf:
+ *		struct procinfo * and entries
+ *		struct fdigest * and entries
+ *		char *sbuf, size
+ */
 static int
 read_conf(char *path,
 	  struct procinfo **o_cpif, int *o_proc_cnt,

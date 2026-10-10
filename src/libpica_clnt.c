@@ -50,7 +50,7 @@ procinfo_show(struct procinfo *cpif, int proc_cnt)
  * Convert serialized configuration data to in-memory structure
  */
 static int
-build_conf(uint8_t *buf, struct procinfo **pinfop)
+build_conf(uint8_t *buf, size_t sz, struct procinfo **pinfop)
 {
     struct confhead	head;
     struct procinfo	*cpif;
@@ -63,6 +63,16 @@ build_conf(uint8_t *buf, struct procinfo **pinfop)
     fdp  = (struct fdigest*) (((uint8_t*) cpif)
 			      + sizeof(struct procinfo)*head.proc_cnt);
     sbuf = (char*) (((uint8_t*)fdp) + sizeof(struct fdigest)*head.fdig_cnt);
+
+    /* size check */
+    if (sz !=
+	(sizeof(struct confhead)
+	 + sizeof(struct procinfo)*head.proc_cnt
+	 + sizeof(struct fdigest)*head.fdig_cnt
+	 + head.str_size)) {
+	fprintf(stderr, "%s: configuration file size is short\n", __func__);
+	return 0;
+    }
 
     for (i = 0; i < head.proc_cnt; i++) {
 	/* path */
@@ -85,14 +95,15 @@ reg_config(const char *fname, struct procinfo *pinfo, int entries)
 {
     int	fd;
     int	i, j, ret;
-    size_t	ssz = 0, wsz;
+    size_t	ssz = 0;
     int		fdcnt = 0;
     uint64_t	spos = 0;
-    char	*sbuf;
-    struct fdigest	*fdp_dst;
+    char	*sbuf = NULL;
+    struct fdigest	*fdp_dst = NULL;
     int	fpos = 0;
     struct confhead	head;
-    struct procinfo	*cpif;
+    struct procinfo	*cpif = NULL;
+    uint8_t		*p_buf = NULL;
 
     fd = file_open(fname, O_CREAT|O_RDWR, 0640);
     if (fd < 0) {
@@ -156,16 +167,42 @@ reg_config(const char *fname, struct procinfo *pinfo, int entries)
     head.proc_cnt = entries;
     head.fdig_cnt = fdcnt;
     head.str_size = ssz;
-    /* now writting */
-    WSIZE_CHECK(err, wsz, sizeof(struct confhead),
-		file_write(fd, &head, sizeof(struct confhead)));
-    WSIZE_CHECK(err, wsz, sizeof(struct procinfo)*entries,
-		file_write(fd, cpif, sizeof(struct procinfo)*entries));
-    WSIZE_CHECK(err, wsz, sizeof(struct fdigest)*fdcnt,
-		file_write(fd, fdp_dst, sizeof(struct fdigest)*fdcnt));
-    WSIZE_CHECK(err, wsz, ssz, file_write(fd, sbuf, ssz));
-    SYSCALL(err, ret, file_close(fd), "Cannot close a file: %s\n", fname);
+    /*
+     * now writting
+     *    head: sizeof(struct confhead)
+     *    cpif: sizeof(struct procinfo)*entries
+     *    fdp_dst: sizeof(struct fdigest)*fdcnt
+     *    sbuf: ssz
+     */
+    {
+	size_t	p_sz = sizeof(struct confhead)
+			+ sizeof(struct procinfo)*entries
+			+ sizeof(struct fdigest)*fdcnt
+			+ ssz;
+	p_buf = malloc(p_sz);
+	if (p_buf == NULL) {
+	    fprintf(stderr, "Cannot allocate temporary memory (%ld)\n", p_sz);
+	    goto err;
+	}
+	/* head */
+	memcpy(p_buf, &head, sizeof(struct confhead));
+	/* cpif */
+	memcpy(p_buf + sizeof(struct confhead),
+	       cpif, sizeof(struct procinfo)*entries);
+	/* fdp_dst */
+	memcpy(p_buf + sizeof(struct confhead) + sizeof(struct procinfo)*entries,
+	       fdp_dst, sizeof(struct fdigest)*fdcnt);
+	/* ssz */
+	memcpy(p_buf + sizeof(struct confhead)
+	             + sizeof(struct procinfo)*entries + sizeof(struct fdigest)*fdcnt,
+	       sbuf, ssz);
+	SYSCALL(err0, ret, file_seal_write(fd, p_buf, p_sz),
+		"Cannot write a file: %s\n", fname);
+	SYSCALL(err0, ret, file_close(fd), "Cannot close a file: %s\n", fname);
+    }
     /* memory free */
+err0:
+    free(p_buf);
 err:
     free(sbuf);
     free(cpif);
@@ -749,25 +786,20 @@ found:
 int
 pica_read_config(const char *confpath, struct procinfo	**procinfo)
 {
-    size_t	sz, wsz;
-    uint8_t	*buffer;
+    size_t	enc_sz, dec_sz;
+    void	*buffer;
     int	fd;
     int	entries = 0;
     int	i;
 	
     printf("!!!!!! configuration read !!!!!!\n");
-    fd = file_size(confpath, &sz);
+    fd = file_size(confpath, &enc_sz);
     if (fd < 0) {
 	fprintf(stderr, "Cannot open file: %s\n", confpath);
 	*procinfo = NULL; entries = 0; goto err;
     }
-    buffer = malloc(sz);
-    wsz = file_read_close(fd, buffer, sz);
-    if (wsz < 0) {
-	fprintf(stderr, "Read error: %s\n", confpath);
-	*procinfo = NULL; entries = 0; goto err;
-    }
-    entries = build_conf(buffer, procinfo);
+    dec_sz = file_seal_read_close(fd, &buffer, enc_sz);
+    entries = build_conf(buffer, dec_sz, procinfo);
     VERBOSE(VERB_CONF) printf("\tentries = %d\n", entries);
     VERBOSE(VERB_CONF) procinfo_show(*procinfo, entries);
     /* the allocated memory area is used, do not free */

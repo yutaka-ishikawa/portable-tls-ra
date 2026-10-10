@@ -215,14 +215,45 @@ ocall_file_size(const char *path, size_t *sz, int *fd)
     *fd = file_size(path, sz);
 }
 
+/*
+ * Non-TEE: no file_seal_write function available.
+ */
+int
+file_seal_write(int fd, void *buf, size_t wsz)
+{
+    size_t	sz;
+    int	rc;
+    fprintf(stderr, "%s: Must consider to implement this function in Non-TEE\n", __func__);
+    sz = file_write(fd, buf, wsz);
+    rc = (sz == wsz);
+    return rc;
+}
+
+/*
+ * Non-TEE: no file_seal_read_close function available.
+ */
+size_t
+file_seal_read_close(int fd, void **o_buf, size_t rsz)
+{
+    fprintf(stderr, "%s: Must consider to implement this function in Non-TEE\n", __func__);
+    *o_buf = malloc(rsz);
+    if (*o_buf == NULL) {
+	fprintf(stderr, "%s: Cannot allocate memory (%ld)\n", __func__, rsz);
+	return 0;
+    }
+    rsz = file_read_close(fd, *o_buf, rsz);
+    return rsz;
+}
+
 #else
 /*-------------------------------------------------------------------------
  * SGXENV
  *-------------------------------------------------------------------------*/
 #include "pica_t.h"
 #include "pica_sgxenv.h"
+#include <sgx_tseal.h>
 
-/* TEE code */
+/* TEE codes: SGX Enclave */
 int
 file_open(const char *path, int flag, int mode)
 {
@@ -271,6 +302,74 @@ file_size(const char *path, size_t *sz)
     ocall_file_size(path, sz, &fd);
     return fd;
 }
+
+/*
+ * TEE (Intel Enclave): file_seal_write function
+ */
+int
+file_seal_write(int fd, void *buf, size_t wsz)
+{
+    uint32_t	enclen;
+    sgx_sealed_data_t 	*encbufp;
+    sgx_status_t  st;
+    int	rc = -1;
+
+    enclen = sgx_calc_sealed_data_size(0, wsz);
+    encbufp = malloc(enclen);
+    if(encbufp == NULL) goto err;
+    st = sgx_seal_data(0, NULL, wsz, buf, enclen, encbufp);
+    if (st != SGX_SUCCESS) {
+	fprintf(stderr, "%s: sgx_seal_data error: 0x%x\n", __func__, st);
+	goto err;
+    }
+    wsz = file_write(fd, encbufp, enclen);
+    rc = (wsz == enclen);
+    free(encbufp);
+err:
+    return rc;
+}
+
+/*
+ * TEE (Intel Enclave): file_seal_read_close function available.
+ */
+size_t
+file_seal_read_close(int fd, void **o_buf, size_t enc_sz)
+{
+    uint8_t	*encp, *decp;
+    size_t	rsz;
+    uint32_t	dec_sz = 0;
+    sgx_status_t st;
+    
+    encp = malloc(enc_sz);
+    if (encp == NULL) {
+	fprintf(stderr, "%s: Cannot allocate memory (%ld)\n", __func__, enc_sz);
+	goto err;
+    }
+    rsz = file_read_close(fd, encp, enc_sz);
+    if (rsz != enc_sz) {
+	fprintf(stderr, "%s: cannot read\n", __func__);
+	rsz = 0; *o_buf = NULL;
+	goto err0;
+    }
+    dec_sz = sgx_get_encrypt_txt_len((const sgx_sealed_data_t *)encp);
+    decp = malloc(dec_sz);
+    if (decp == NULL) {
+	fprintf(stderr, "%s: Cannot allocate memory (%d)\n", __func__, dec_sz);
+	dec_sz = 0; *o_buf = NULL;
+	goto err0;
+    }
+    st = sgx_unseal_data((const sgx_sealed_data_t *) encp, NULL, 0, decp, &dec_sz);
+    if (st != SGX_SUCCESS) {
+	fprintf(stderr, "%s: sgx_seal_data error: 0x%x\n", __func__, st);
+	goto err;
+    }
+    *o_buf = decp;
+err0:
+    free(encp);
+err:
+    return dec_sz;
+}
+
 #endif /* ~SGXENV */
 
 /*****************************************************************************
