@@ -1,4 +1,5 @@
 /*
+ *	#define MEASURE_KEYPAIR for tls-sgx
  * Intel SGX EPID
  *	1.2.840.113741.1.13.1 SGX_EXTENSIONS_OID_STR
  *	1.2.840.113741.1.13.1.1 SGX_PPID_OID_STR
@@ -42,11 +43,6 @@
 #include "ptlsra.h"
 #include "libcert.h"
 #include <cbor.h>
-
-/*
- * FIXME: temporal hacking !!!
- */
-#define MEASURE_KEYPAIR
 
 //#define REPORT_CRITICAL
 #ifdef REPORT_CRITICAL
@@ -404,12 +400,8 @@ err0:
 /*
  * TPM2
  */
-#include "libquote.h"
 #include "tss2/tss2_tpm2_types.h"
-extern int
-make_cbor_tri_tpm2_evidence(uint8_t *quote, size_t quotesz,
-			    uint8_t *claim, size_t claimsz,
-			    uint8_t **out_evidence, size_t *evidence_size);
+#include "libquote.h"
 /*
  * make_certificate_evidence:
  *		[IN]  uint8_t *pubkey, int pubksz,
@@ -456,38 +448,6 @@ make_certificate_evidence(uint8_t *pubkey, int pubksz,
 }
 #endif
 
-static void
-write_pems(const char *path, X509 *cert, EVP_PKEY *pkey)
-{
-    char	buf[1024];
-
-    CERT_DEBUG {
-	fprintf(stderr, "%s: %s\n", __func__, path);
-    }
-    /* cert */
-    strncpy(buf, path, 1024); strncat(buf, ".pem", 1023);
-    TLSRA_X509_write(buf, cert);
-    /* public key */
-    strncpy(buf, path, 1024); strncat(buf, ".pub", 1023);
-    TLSRA_PUBKEY_write(buf, pkey);
-    //PEM_write_PUBKEY(fp, pkey);
-
-    /* private key */
-    strncpy(buf, path, 1024); strncat(buf, ".priv", 1023);
-    TLSRA_PrivateKey_write(buf, pkey);
-    // PEM_write_PrivateKey(fp, pkey, NULL, NULL, 0, NULL, NULL);
-}
-
-static void
-read_pems(const char *path, X509 **pcert)
-{
-    //FILE	*fp;
-    char	buf[1024];
-
-    /* cert */
-    strncpy(buf, path, 1024);  strncat(buf, ".pem", 1023);
-    *pcert = TLSRA_X509_read(buf);
-}
 
 /*
  * Self-signed Certificate with Quote using X509.Extensions
@@ -661,8 +621,43 @@ err:
     return rc;
 }
 
-//#define LIBCERT_TEST
+/*
+ * Test program
+ */
 #ifdef LIBCERT_TEST
+static void
+read_pems(const char *path, X509 **pcert)
+{
+    //FILE	*fp;
+    char	buf[1024];
+
+    /* cert */
+    strncpy(buf, path, 1024);  strncat(buf, ".pem", 1023);
+    *pcert = TLSRA_X509_read(buf);
+}
+
+static void
+write_pems(const char *path, X509 *cert, EVP_PKEY *pkey)
+{
+    char	buf[1024];
+
+    CERT_DEBUG {
+	fprintf(stderr, "%s: %s\n", __func__, path);
+    }
+    /* cert */
+    strncpy(buf, path, 1024); strncat(buf, ".pem", 1023);
+    TLSRA_X509_write(buf, cert);
+    /* public key */
+    strncpy(buf, path, 1024); strncat(buf, ".pub", 1023);
+    TLSRA_PUBKEY_write(buf, pkey);
+    //PEM_write_PUBKEY(fp, pkey);
+
+    /* private key */
+    strncpy(buf, path, 1024); strncat(buf, ".priv", 1023);
+    TLSRA_PrivateKey_write(buf, pkey);
+    // PEM_write_PrivateKey(fp, pkey, NULL, NULL, 0, NULL, NULL);
+}
+
 /*
  *
  */

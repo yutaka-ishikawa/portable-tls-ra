@@ -55,6 +55,7 @@
 #include <openssl/x509v3.h>
 
 #include "sgxenv.h"
+#include "libintel.h"
 #include "libcert.h"
 
 #include <cbor.h>

@@ -1,0 +1,17 @@
+/*
+ *
+ */
+enclave {
+    from "pica.edl" import *;
+    from "sgx_tstdc.edl" import *;
+    from "sgx_socket.edl" import *;
+    from "sgx_tsgxssl.edl" import *;
+    //    from "sgx_ttls.edl" import *;
+    from "sgx_pthread.edl" import *;
+    trusted {
+        public sgx_status_t e_main(int	eargc,
+				   [in, count=eargc] int *eargpos,
+				   int	eblen,
+				   [in, size=eblen] char *ebuf);
+    };
+};

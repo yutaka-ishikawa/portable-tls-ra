@@ -7,8 +7,12 @@
 #if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
 /* SGX */
 #include "sgxenv.h"
+#define TLSRA_VERBOSE VERBOSE
 struct timespec;
 #include <Enclave_t.h>
+#else
+extern int vflag;
+#define TLSRA_VERBOSE if(vflag)
 #endif
 
 #include "ptlsra.h"
@@ -19,7 +23,7 @@ hash_extend_sha256(const uint8_t *old_hash, const uint8_t *digest,
                    uint8_t *new_hash)
 {
     EVP_MD_CTX	*ctx = NULL;
-    int	len = 0;
+    unsigned int	len = 0;
     int rc = -1;
 
     TLSRA_SSLCALLP(err0, ctx, EVP_MD_CTX_new());
@@ -39,6 +43,7 @@ err0:
     return rc;
 }
 
+#if 0
 static void
 dump(const char *msg, const unsigned char *bf, int size)
 {
@@ -49,6 +54,7 @@ dump(const char *msg, const unsigned char *bf, int size)
     }
     fprintf(stderr, "\n");
 }
+#endif
 
 /*
  * return value is true (1) or false(0)
@@ -152,6 +158,7 @@ err0:
     return rc;
 }
 
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
 /*
  * Claims for enclave contain two map entries:
  *	"pubkey-hash"
@@ -196,7 +203,7 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
     {
 	extern int atflag;
 	if (atflag) {
-	    VERBOSE {
+	    TLSRA_VERBOSE {
 		fprintf(stderr, "%s: ocall_make_tpm2_quote_via_daemon(...)\n",__func__);
 	    }
 	    {
@@ -215,13 +222,13 @@ make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
 	    //ocall_make_tpm2_quote_via_daemon(nonce, nsize, sizeof(tpm2_qbuf),
 	    //		tpm2_qbuf, &tpm2_qbsz, dpath);
 	} else {
-	    VERBOSE {
+	    TLSRA_VERBOSE {
 		fprintf(stderr, "%s: ocall_make_tpm2_quote(...)\n", __func__);
 	    }
 	    ocall_make_tpm2_quote(nonce, nsize, sizeof(tpm2_qbuf),
 				  tpm2_qbuf, &tpm2_qbsz);
 	}
-	VERBOSE {
+	TLSRA_VERBOSE {
 	    fprintf(stderr,
 		    "%s: RETURN from OCALL tpm2_qbuf=%p tpm2_qbsz=%ld LINE=%d\n",
 		    __func__, tpm2_qbuf, tpm2_qbsz, __LINE__);
@@ -248,7 +255,7 @@ err1:
 err0:
     return rc;
 }
-
+#endif
 
 /*
  * Claims contain two map entries:
@@ -267,7 +274,6 @@ make_cbor_tpm2_claims(uint8_t *pubkey, int pubksz,
     size_t	chash_sz;
     uint8_t	*claims_buf = NULL;
     size_t	claims_bufsz;
-    int	cret;
     int	rc = -1;
 
     TLSRA_CBORCALLP(err0, c_claims, cbor_new_definite_map(2));
@@ -295,6 +301,15 @@ err1:
     cbor_decref(&c_claims);
 err0:
     return rc;
+}
+
+int
+make_cbor_tpm2_evidence(uint8_t *quote, size_t quotesz,
+			uint8_t *claim, size_t claimsz,
+			uint8_t **out_evidence, size_t *evidence_size)
+{
+    fprintf(stderr, "%s: Not yet implemented\n", __func__);
+    return -1;
 }
 
 /*
@@ -353,6 +368,7 @@ err0:
     return -1;
 }
 
+#if SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2
 /*
  *	seal/unseal: no MAC
  */
@@ -407,3 +423,4 @@ err0:
 err1:
     return st;
 }
+#endif

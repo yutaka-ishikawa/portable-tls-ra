@@ -47,18 +47,9 @@
 #define CBOR_QUOTE_MAX_SIZE ((RAW_QUOTE_MAX_SIZE)*2)
 #define QUOTE_MIN_SIZE 1020
 
-extern int	make_cbor_sgx_claims(uint8_t *pubkey, int pubk_sz,
-				     uint8_t **claims, size_t *cl_sz);
-extern int	make_cbor_sgx_evidence(uint8_t *quote, size_t quote_sz,
-				       uint8_t *claim, size_t claim_sz,
-				       uint8_t **o_evd, size_t *o_evd_sz,
-				       int ctype);
-extern int	make_cbor_tpm2_claims(uint8_t *pubkey, int pubk_sz,
-				      uint8_t *nonce, int nsize,
-				      uint8_t **claims, size_t *cl_sz);
-extern int	make_cbor_tpm2_claims_from_enclave(uint8_t *pubkey, int pubksz,
-						   uint8_t *nonce, int nsize,
-						   uint8_t **claims, size_t *csz);
+#include "libintel.h"
+#include "libtpm2.h"
+
 /**/
 extern EVP_PKEY	*make_keypair(uint8_t **pbkey, int *pbsz,
 			      uint8_t **prkey, int *prsz);

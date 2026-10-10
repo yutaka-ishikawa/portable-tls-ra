@@ -55,10 +55,10 @@ extern int	vflag;
  */
 /* under $(OPENSSL_SRC)/include */
 #if !(SGX_ENCLAVE || SGX_ENCLAVE_WITH_TPM2)
-#include <internal/ssl_unwrap.h>
+//#include <internal/ssl_unwrap.h>
 /* under $(OPSNSSL_SRC) */
-#include <ssl/ssl_local.h>
-#include <ssl/record/methods/recmethod_local.h>
+//#include <ssl/ssl_local.h>
+//#include <ssl/record/methods/recmethod_local.h>
 #endif
 /*
  */
@@ -263,7 +263,7 @@ TLSRA_X509_read(const char *fname)
 #else
     {
 	FILE	*fp;
-	if ((fp = ocall_fopen(fname, "r")) == NULL) {
+	if ((fp = fopen(fname, "r")) == NULL) {
 	    fprintf(stderr, "Error: reading CA cert %s\n", fname);
 	    perror("fopen");
 	    return 0;
@@ -608,7 +608,6 @@ err0:
 static int
 on_client_hello(SSL *ssl, int *al, void *arg)
 {
-    int	len;
     int	rc;
     // SSL_set_msg_callback(con, msg_callback);
     VERBOSE {
@@ -643,21 +642,22 @@ on_client_hello(SSL *ssl, int *al, void *arg)
 	    }
 	}
 	pkey = make_keypair(&pubkey, &pubsz, &privkey, &privsz);
-	if (rc == 2) {
+	if (rflag == 2) {
 	    printf("%s: Skipping creation of Attestation Evidence\n", __func__);
+	    /* qoute = evidence = NULL, qsz = evsz = 0 */
 	} else {
 	    rc = make_certificate_evidence(pubkey, pubsz,
 					   (uint8_t*) nonce, len,
 					   &quote, &qsz, &evidence, &evsz);
-	}
-	if (rc == 0) {
-	    printf("Certificate evidence has been created successfuly on Server.\n");
-	} else {
-	    printf("Creation of certificate evidence failed.\n"
-		   "No evidence is added in the cert\n");
+	    if (rc == 0) {
+		printf("Certificate evidence has been created successfuly on Server.\n");
+	    } else {
+		printf("Creation of certificate evidence failed.\n"
+		       "No evidence is added in the cert\n");
+	    }
 	}
 	/*
-	 * quote and evidence are stored in certificate extension field
+	 * quote and evidence are stored in certificate extension field if generated
 	 */
 	make_x509cert(&cert, pkey, quote, qsz, evidence, evsz);
 	TLSRA_SSLCALL(err3, rc, SSL_use_certificate(ssl, cert));
@@ -763,6 +763,10 @@ verify(int ok, X509_STORE_CTX *ctx, int which)
 	} else {
 	    sz = SSL_get_client_random(ssl, nonce, 32);
 	}
+	if (sz != 32) {
+	    fprintf(stderr, "%s: SSL_get_server/client_random does not copy 32byte nonce\n", __func__);
+		  
+	}
 	if (verify_cert(x509, nonce, which) & (VERIFIED_QUOTE|VERIFIED_EVIDENCE)) {
 	    fprintf(stderr, "Verification success.\n");
 	    ok = 1;
@@ -807,7 +811,6 @@ on_client_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
     uint32_t	qsz = 0;
     uint8_t	*evidence;
     size_t	evsz;
-    size_t	sz;
     int	rc;
 
     DEBUG {
