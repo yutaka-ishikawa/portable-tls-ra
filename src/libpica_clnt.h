@@ -1,6 +1,6 @@
 /*
  * libpica-clnt.h
- *	Enclave-side definitions
+ *	client side library both Non-TEE and TEE
  */
 #include "libpica_common.h"
 
@@ -63,43 +63,25 @@ extern void	procinfo_show(struct procinfo *cpif, int proc_cnt);
 extern void	picapol_show(struct pica_policy *pp);
 extern int	pica_read_config(const char *confpath, struct procinfo	**procinfo);
 extern int	pica_read_policy(const char *polpath, struct pica_policy *ppol);
-/* who use the following functions ? */
-extern void	build_hashtable(struct procinfo *procinfo, int entries);
-//extern void	reg_hashtable(int which, void *addr, const char *path);
-//extern int	build_conf(uint8_t *buf, struct procinfo **pinfop);
-
+/* using conf_tool */
+extern void	pica_build_hashtable(struct procinfo *procinfo, int entries);
 extern int	pica_request_measure(uint8_t *nonce, uint8_t *measure, size_t msz,
 				     size_t *sz,   const char *dpath);
 extern int	pica_extract_pinfo(uint8_t *picabody, size_t pica_sz,
 				   struct procinfo **pinfo);
 extern int	pica_reg_config(const char *path, uint8_t *picabody, size_t pica_sz);
 
+/* policy */
+extern struct pica_stmt *pica_find_policy(struct pica_policy *, struct procinfo *);
+extern void	pica_actions_show(struct pica_stmt *);
+
 /* verifications */
-extern int	pica_verify();
-extern int	verify_tpm2all(uint8_t *measure, size_t msz, uint8_t *nonce,
-			       uint8_t **o_picabody, size_t *o_pica_sz);
-extern int	verify_digest(struct procinfo *regpinfo, struct procinfo *freshpinfo);
-extern int	verify_binaries(struct procinfo *pinfo, int ent);
-extern int	check_ichain(struct pica_stmt *stmt, struct procinfo *pinf, int cnt);
-extern int	check_uids(struct pica_stmt *stmt, struct procinfo *pinf, int cnt);
-extern void	actions_show(struct pica_stmt *);
-
-extern struct pica_stmt *find_policy(struct pica_policy *, struct procinfo *);
-
-/*
- * No needs to expose APIs 
- */
-extern int	extract_tpm2evidence(uint8_t *measure, size_t msz,
-				     uint8_t **quote, size_t *q_sz,
-				     uint8_t *apphash, TPMT_SIGNATURE *tpm_sig,
-				     uint8_t **picabody, size_t *pica_sz);
-extern int	verify_tpm2quote_sig(const uint8_t *s_quoted, int sq_size,
-				     const TPMT_SIGNATURE *sig, EVP_PKEY *ak_pubkey);
-extern int	check_tpm2pcrs(TPMS_ATTEST *tpm_atst, TPMS_ATTEST *reg_atst);
-extern int	extract_tpm2attest(const uint8_t *s_quoted, int sq_size, TPMS_ATTEST *tpm_atst);
-extern int	check_apphash(uint8_t *picabody, size_t pica_sz,
-			      uint8_t *nonce, uint8_t *apphash, uint8_t *udata);
-
+extern int	pica_verify_tpm2all(uint8_t *measure, size_t msz, uint8_t *nonce,
+				    uint8_t **o_picabody, size_t *o_pica_sz);
+extern int	pica_verify_digest(struct procinfo *regpinfo, struct procinfo *freshpinfo);
+extern int	pica_verify_binaries(struct procinfo *pinfo, int ent);
+extern int	pica_check_ichain(struct pica_stmt *stmt, struct procinfo *pinf, int cnt);
+extern int	pica_check_uids(struct pica_stmt *stmt, struct procinfo *pinf, int cnt);
 
 #define EXTRACT_TPM2_QUTE 1
 #define EXTRACT_TPM2_SIGN 2

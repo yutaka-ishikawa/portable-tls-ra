@@ -411,7 +411,7 @@ main(int argc, char **argv)
     }
 #if 0
     if(cpif && proc_cnt > 0) {
-	build_hashtable(cpif, proc_cnt);
+	pica_build_hashtable(cpif, proc_cnt);
     }
 #endif
     return 0;

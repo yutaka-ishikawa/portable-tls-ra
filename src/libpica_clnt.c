@@ -557,7 +557,7 @@ skip:
 
 
 void
-build_hashtable(struct procinfo *procinfo, int entries)
+pica_build_hashtable(struct procinfo *procinfo, int entries)
 {
     int	i;
     struct procinfo	*pif = procinfo;
@@ -569,7 +569,7 @@ build_hashtable(struct procinfo *procinfo, int entries)
 
 
 int
-verify_digest(struct procinfo *regpinfo, struct procinfo *freshpinfo)
+pica_verify_digest(struct procinfo *regpinfo, struct procinfo *freshpinfo)
 {
     struct fdigest	*reg_dig = regpinfo->libs;
     int			reg_cnt =  regpinfo->count;
@@ -621,7 +621,7 @@ bad:
  * along with the invocation execution path.
  */
 int
-verify_binaries(struct procinfo *pinfo, int ent)
+pica_verify_binaries(struct procinfo *pinfo, int ent)
 {
     struct procinfo *cnfpinfo;
     int	rc = VERIFY_PICA_BINARIES;
@@ -633,7 +633,7 @@ verify_binaries(struct procinfo *pinfo, int ent)
 	cnfpinfo = find_hashtable(pinfo[i].path, PICA_ENT_CONF_PROCINFO);
 	if (cnfpinfo) {
 	    int	vc;
-	    vc = verify_digest(cnfpinfo, &pinfo[i]);
+	    vc = pica_verify_digest(cnfpinfo, &pinfo[i]);
 	    if (vc < 0) { /* library digest error */
 		printf("\tFound and verification fails: %s\n", pinfo[i].path);
 		rc = 0;
@@ -653,7 +653,7 @@ verify_binaries(struct procinfo *pinfo, int ent)
  * procinfo:  measured process invocatin chain
  */
 int
-check_ichain(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
+pica_check_ichain(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
 {
     int rc = VERIFY_PICA_CHAIN;
     int	i, j;
@@ -696,7 +696,7 @@ match_uid(int *ids, int count, int id)
 }
 
 int
-check_uids(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
+pica_check_uids(struct pica_stmt *pstmt, struct procinfo *pinfo, int ent)
 {
     int	count = pstmt->uid_cnt;
     int	*uids = pstmt->uid;
@@ -712,7 +712,7 @@ bad:
 }
 
 void
-actions_show(struct pica_stmt *pstmt)
+pica_actions_show(struct pica_stmt *pstmt)
 {
     int	i;
     if (pstmt == NULL) return;
@@ -724,7 +724,7 @@ actions_show(struct pica_stmt *pstmt)
 }
 
 struct pica_stmt *
-find_policy(struct pica_policy *ppol, struct procinfo *bin)
+pica_find_policy(struct pica_policy *ppol, struct procinfo *bin)
 {
     int		i;
     for (i = 0; i < ppol->entries; i++) {
@@ -1033,7 +1033,7 @@ err:
 /*
  * Checking PCR registers
  */
-int
+static int
 check_tpm2pcrs(TPMS_ATTEST *tpm_atst, TPMS_ATTEST *reg_atst)
 {
     int	rc = 0;
@@ -1053,7 +1053,7 @@ check_tpm2pcrs(TPMS_ATTEST *tpm_atst, TPMS_ATTEST *reg_atst)
 /*
  * extract tpm2 attastation data, TPMS_ATTEST
  */
-int
+static int
 extract_tpm2attest(const uint8_t *s_quoted, int sq_size, TPMS_ATTEST *tpm_atst)
 {
     size_t	off = 0;
@@ -1077,7 +1077,7 @@ err:
  *	0 : Verify Success
  *	-1: Verify Failed
  */
-int
+static int
 verify_tpm2quote_sig(const uint8_t *s_quoted, int sq_size,
 		     const TPMT_SIGNATURE *sig, EVP_PKEY *ak_pubkey)
 {
@@ -1257,7 +1257,7 @@ err_ext:
 /*
  *
  */
-int
+static int
 extract_tpm2evidence(uint8_t *measure, size_t msz,
 		     uint8_t **quote, size_t *q_sz,
 		     uint8_t *apphash, TPMT_SIGNATURE *tpm_sig,
@@ -1317,7 +1317,7 @@ err:
  * udata    := tpm_atst.extraData.buffer is udata
  * apphash  := "app-hash" in claims
  */
-int
+static int
 check_apphash(uint8_t *picabody, size_t pica_sz,
 	      uint8_t *nonce, uint8_t *apphash, uint8_t *udata)
 {
@@ -1339,17 +1339,17 @@ err_ext:
 }
 
 int
-verify_tpm2all(uint8_t *measure, size_t msz, uint8_t *nonce,
-	       uint8_t **o_picabody, size_t *o_pica_sz)
+pica_verify_tpm2all(uint8_t *measure, size_t msz, uint8_t *nonce,
+		    uint8_t **o_picabody, size_t *o_pica_sz)
 {
-    uint8_t		*quote;
-    size_t		q_sz;
+    uint8_t		*quote = NULL;
+    size_t		q_sz = 0;
     uint8_t		apphash[32];
     TPMT_SIGNATURE	tpm_sig;
     TPMS_ATTEST	tpm_atst;
     TPMS_ATTEST	reg_atst;
-    uint8_t		*picabody;
-    size_t		pica_sz;
+    uint8_t		*picabody = NULL;
+    size_t		pica_sz = 0;
     EVP_PKEY	*ak_pubkey = NULL;
     int	trc, rc = 0;
 

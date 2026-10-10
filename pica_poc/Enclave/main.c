@@ -179,7 +179,7 @@ main(int argc, char **argv)
     /*
      * Verify TPM2 attestated evidences
      */
-    verified = verify_tpm2all(measure, msz, nonce, &picabody, &pica_sz);
+    verified = pica_verify_tpm2all(measure, msz, nonce, &picabody, &pica_sz);
     printf("%s: rc = %d picabody(%p), pica_sz(%ld)\n", __func__, rc, picabody, pica_sz);
 
     if (rflag) {
@@ -199,7 +199,7 @@ main(int argc, char **argv)
 	/* proc_fresh is generated from Attester Daemon */
 	/* The last entry is the client binary */
 	mybinary = &fresh_pinfo[fresh_pent - 1];
-	pstmt = find_policy(&ppol, mybinary);
+	pstmt = pica_find_policy(&ppol, mybinary);
 	if (pstmt == NULL) {
 	    printf("policy file is %s\n", pol_path); goto err_exit;
 	}
@@ -207,16 +207,16 @@ main(int argc, char **argv)
 	 * 1) Invocation Chain Verification
 	 *    Verify the integrity of all binaries, including shared libraries
 	 */
-	verified |= verify_binaries(fresh_pinfo, fresh_pent);
+	verified |= pica_verify_binaries(fresh_pinfo, fresh_pent);
 	/*
 	 * 2) Invocation Chain Verification
 	 *    Checking acceptable binaries listed in the policy statement.
 	 */
-	verified |= check_ichain(pstmt, fresh_pinfo, fresh_pent);
+	verified |= pica_check_ichain(pstmt, fresh_pinfo, fresh_pent);
 	/*
 	 * 3) Checking UIDs
 	 */
-	verified |= check_uids(pstmt, fresh_pinfo, fresh_pent);	
+	verified |= pica_check_uids(pstmt, fresh_pinfo, fresh_pent);	
 	printf("Verification Results: Freshness %s, TPM2_Quote %s, "
 	       "Binaries %s, Chain %s, UIDs %s\n",
 	       (verified & VERIFY_TPM2_FRESH) ? "Verified" : "Failed",
@@ -226,7 +226,7 @@ main(int argc, char **argv)
 	       (verified & VERIFY_PICA_UIDS) ? "Verified" : "Failed");
 	if (VERIFIED_ALL(verified)) {
 	    printf("All verifications are success\n");
-	    actions_show(pstmt);
+	    pica_actions_show(pstmt);
 	}
     }
     getclocktime(&et_sec, &et_nsec);
